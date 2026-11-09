@@ -65,5 +65,18 @@ services:
       mysql:
         condition: service_healthy
 
+  nginx:
+    image: nginx:stable-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+    ports:
+      - "80:80"
+    depends_on:
+      api1:
+        condition: service_started
+      api2:
+        condition: service_started
+
 volumes:
   mysql_data:
