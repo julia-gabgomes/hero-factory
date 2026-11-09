@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { heroes } from "../src/db/schema/heroes.js";
+import { buildHeroRow } from "./factories.js";
+import { getColumn, getIndexes } from "./information-schema.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
@@ -17,75 +19,6 @@ import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 // `information_schema` do próprio MySQL real do Testcontainers (já com a
 // migration aplicada) — é mais robusto a diferenças de formatação do SQL
 // gerado e já exercita a migration de verdade, em vez de só o texto dela.
-
-interface ColumnInfo {
-  COLUMN_TYPE: string;
-  CHARACTER_SET_NAME: string | null;
-  COLLATION_NAME: string | null;
-  IS_NULLABLE: "YES" | "NO";
-  COLUMN_DEFAULT: string | null;
-}
-
-interface IndexColumnRow {
-  INDEX_NAME: string;
-  SEQ_IN_INDEX: number;
-  COLUMN_NAME: string;
-  NON_UNIQUE: number;
-}
-
-type HeroInsert = typeof heroes.$inferInsert;
-
-function buildHeroRow(overrides: Partial<HeroInsert> = {}): HeroInsert {
-  const now = new Date("2024-05-01T10:00:00.000Z");
-  const suffix = randomUUID();
-  return {
-    id: randomUUID(),
-    name: `Teste Herói ${suffix}`,
-    nickname: `Nick ${suffix}`,
-    universe: "Universo de teste",
-    main_power: "Poder de teste",
-    date_of_birth: "1990-06-18",
-    avatar_url: null,
-    is_active: true,
-    deleted_at: null,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
-
-async function getColumn(db: TestDatabase["db"], columnName: string): Promise<ColumnInfo> {
-  const [rows] = await db.execute(
-    sql`SELECT COLUMN_TYPE, CHARACTER_SET_NAME, COLLATION_NAME, IS_NULLABLE, COLUMN_DEFAULT
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'heroes' AND COLUMN_NAME = ${columnName}`,
-  );
-  const [column] = rows as unknown as ColumnInfo[];
-  if (!column) {
-    throw new Error(`Coluna ${columnName} não encontrada em heroes`);
-  }
-  return column;
-}
-
-async function getIndexes(db: TestDatabase["db"]): Promise<Map<string, { columns: string[]; unique: boolean }>> {
-  const [rows] = await db.execute(
-    sql`SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE
-        FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'heroes'
-        ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
-  );
-  const indexRows = rows as unknown as IndexColumnRow[];
-  const indexes = new Map<string, { columns: string[]; unique: boolean }>();
-  for (const row of indexRows) {
-    const existing = indexes.get(row.INDEX_NAME);
-    if (existing) {
-      existing.columns.push(row.COLUMN_NAME);
-    } else {
-      indexes.set(row.INDEX_NAME, { columns: [row.COLUMN_NAME], unique: row.NON_UNIQUE === 0 });
-    }
-  }
-  return indexes;
-}
 
 describe("schema de heroes (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;
@@ -177,7 +110,7 @@ describe("schema de heroes (MySQL real via Testcontainers)", () => {
   // quando se lê a definição da coluna `id` no information_schema, então
   // ela é CHAR(36) com charset ascii e collation ascii_bin.
   it("define heroes.id como CHAR(36) CHARACTER SET ascii COLLATE ascii_bin", async () => {
-    const column = await getColumn(testDatabase.db, "id");
+    const column = await getColumn(testDatabase.db, "heroes", "id");
     expect(column.COLUMN_TYPE).toBe("char(36)");
     expect(column.CHARACTER_SET_NAME).toBe("ascii");
     expect(column.COLLATION_NAME).toBe("ascii_bin");
@@ -195,13 +128,13 @@ describe("schema de heroes (MySQL real via Testcontainers)", () => {
     { column: "main_power", length: 80 },
     { column: "avatar_url", length: 2048 },
   ])("define heroes.$column como VARCHAR($length) com collation utf8mb4_0900_ai_ci", async ({ column, length }) => {
-    const info = await getColumn(testDatabase.db, column);
+    const info = await getColumn(testDatabase.db, "heroes", column);
     expect(info.COLUMN_TYPE).toBe(`varchar(${length})`);
     expect(info.COLLATION_NAME).toBe("utf8mb4_0900_ai_ci");
   });
 
   it("deixa heroes.avatar_url opcional", async () => {
-    const info = await getColumn(testDatabase.db, "avatar_url");
+    const info = await getColumn(testDatabase.db, "heroes", "avatar_url");
     expect(info.IS_NULLABLE).toBe("YES");
   });
 
@@ -209,19 +142,19 @@ describe("schema de heroes (MySQL real via Testcontainers)", () => {
   // definição de `date_of_birth`, então ela é DATE; quando se lê
   // `created_at` e `updated_at`, então ambas são DATETIME(3).
   it("define heroes.date_of_birth como DATE", async () => {
-    const info = await getColumn(testDatabase.db, "date_of_birth");
+    const info = await getColumn(testDatabase.db, "heroes", "date_of_birth");
     expect(info.COLUMN_TYPE).toBe("date");
   });
 
   it.each(["created_at", "updated_at"])("define heroes.%s como DATETIME(3)", async (column) => {
-    const info = await getColumn(testDatabase.db, column);
+    const info = await getColumn(testDatabase.db, "heroes", column);
     expect(info.COLUMN_TYPE).toBe("datetime(3)");
   });
 
   // Etapa 01 · C5.a — Dado o MySQL com a migration aplicada, quando se lê a
   // definição de `version`, então ela é INT NOT NULL com valor padrão 1.
   it("define heroes.version como INT NOT NULL DEFAULT 1", async () => {
-    const info = await getColumn(testDatabase.db, "version");
+    const info = await getColumn(testDatabase.db, "heroes", "version");
     expect(info.COLUMN_TYPE).toBe("int");
     expect(info.IS_NULLABLE).toBe("NO");
     expect(info.COLUMN_DEFAULT).toBe("1");
@@ -232,7 +165,7 @@ describe("schema de heroes (MySQL real via Testcontainers)", () => {
   // (não necessariamente único) cobrindo exatamente as colunas
   // `deleted_at`, `created_at`, `id`, `name`, `nickname`, nessa ordem.
   it("tem um índice cobrindo (deleted_at, created_at, id, name, nickname) nessa ordem", async () => {
-    const indexes = await getIndexes(testDatabase.db);
+    const indexes = await getIndexes(testDatabase.db, "heroes");
     const expectedOrder = ["deleted_at", "created_at", "id", "name", "nickname"];
 
     const matching = [...indexes.values()].find(

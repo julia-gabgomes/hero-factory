@@ -1,7 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { missions } from "../src/db/schema/missions.js";
+import { buildMissionRow } from "./factories.js";
+import { getColumn, getIndexes } from "./information-schema.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
@@ -11,72 +12,6 @@ import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 // vez de parsear o arquivo .sql, este teste consulta o `information_schema`
 // do próprio MySQL real do Testcontainers (já com a migration aplicada) —
 // mesmo padrão de `heroes-schema.test.ts`.
-
-interface ColumnInfo {
-  COLUMN_TYPE: string;
-  CHARACTER_SET_NAME: string | null;
-  COLLATION_NAME: string | null;
-  IS_NULLABLE: "YES" | "NO";
-  COLUMN_DEFAULT: string | null;
-}
-
-interface IndexColumnRow {
-  INDEX_NAME: string;
-  SEQ_IN_INDEX: number;
-  COLUMN_NAME: string;
-  NON_UNIQUE: number;
-}
-
-type MissionInsert = typeof missions.$inferInsert;
-
-function buildMissionRow(overrides: Partial<MissionInsert> = {}): MissionInsert {
-  const startsAt = new Date("2024-05-01T10:00:00.000Z");
-  const endsAt = new Date("2024-05-01T12:00:00.000Z");
-  const now = new Date("2024-05-01T09:00:00.000Z");
-  return {
-    id: randomUUID(),
-    title: `Missão de teste ${randomUUID()}`,
-    status: "scheduled",
-    starts_at: startsAt,
-    ends_at: endsAt,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
-
-async function getColumn(db: TestDatabase["db"], columnName: string): Promise<ColumnInfo> {
-  const [rows] = await db.execute(
-    sql`SELECT COLUMN_TYPE, CHARACTER_SET_NAME, COLLATION_NAME, IS_NULLABLE, COLUMN_DEFAULT
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'missions' AND COLUMN_NAME = ${columnName}`,
-  );
-  const [column] = rows as unknown as ColumnInfo[];
-  if (!column) {
-    throw new Error(`Coluna ${columnName} não encontrada em missions`);
-  }
-  return column;
-}
-
-async function getIndexes(db: TestDatabase["db"]): Promise<Map<string, { columns: string[]; unique: boolean }>> {
-  const [rows] = await db.execute(
-    sql`SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE
-        FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'missions'
-        ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
-  );
-  const indexRows = rows as unknown as IndexColumnRow[];
-  const indexes = new Map<string, { columns: string[]; unique: boolean }>();
-  for (const row of indexRows) {
-    const existing = indexes.get(row.INDEX_NAME);
-    if (existing) {
-      existing.columns.push(row.COLUMN_NAME);
-    } else {
-      indexes.set(row.INDEX_NAME, { columns: [row.COLUMN_NAME], unique: row.NON_UNIQUE === 0 });
-    }
-  }
-  return indexes;
-}
 
 describe("schema de missions (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;
@@ -108,7 +43,7 @@ describe("schema de missions (MySQL real via Testcontainers)", () => {
   // quando se lê a definição da coluna `title`, então ela é VARCHAR(120) com
   // collation utf8mb4_0900_ai_ci.
   it("define missions.title como VARCHAR(120) com collation utf8mb4_0900_ai_ci", async () => {
-    const column = await getColumn(testDatabase.db, "title");
+    const column = await getColumn(testDatabase.db, "missions", "title");
     expect(column.COLUMN_TYPE).toBe("varchar(120)");
     expect(column.COLLATION_NAME).toBe("utf8mb4_0900_ai_ci");
   });
@@ -143,7 +78,7 @@ describe("schema de missions (MySQL real via Testcontainers)", () => {
   // Etapa 02 · C4.a — Dado o MySQL com a migration aplicada, quando se lê a
   // definição de `starts_at` e `ends_at`, então ambas são DATETIME(3).
   it.each(["starts_at", "ends_at"])("define missions.%s como DATETIME(3)", async (column) => {
-    const info = await getColumn(testDatabase.db, column);
+    const info = await getColumn(testDatabase.db, "missions", column);
     expect(info.COLUMN_TYPE).toBe("datetime(3)");
   });
 
@@ -152,7 +87,7 @@ describe("schema de missions (MySQL real via Testcontainers)", () => {
   // cobrindo exatamente as colunas `status`, `starts_at`, `ends_at`, nessa
   // ordem.
   it("tem um índice cobrindo (status, starts_at, ends_at) nessa ordem", async () => {
-    const indexes = await getIndexes(testDatabase.db);
+    const indexes = await getIndexes(testDatabase.db, "missions");
     const expectedOrder = ["status", "starts_at", "ends_at"];
 
     const matching = [...indexes.values()].find(

@@ -3,6 +3,8 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { heroChanges } from "../src/db/schema/hero_changes.js";
 import { heroes } from "../src/db/schema/heroes.js";
+import { buildHeroRow } from "./factories.js";
+import { getColumn, getIndexes } from "./information-schema.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
@@ -19,39 +21,7 @@ import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 // migrations aplicadas) — mesmo padrão de `heroes-schema.test.ts` e
 // `mission-heroes-schema.test.ts`.
 
-interface ColumnInfo {
-  COLUMN_TYPE: string;
-  IS_NULLABLE: "YES" | "NO";
-}
-
-interface IndexColumnRow {
-  INDEX_NAME: string;
-  SEQ_IN_INDEX: number;
-  COLUMN_NAME: string;
-  NON_UNIQUE: number;
-}
-
-type HeroInsert = typeof heroes.$inferInsert;
 type HeroChangeInsert = typeof heroChanges.$inferInsert;
-
-function buildHeroRow(overrides: Partial<HeroInsert> = {}): HeroInsert {
-  const now = new Date("2024-05-01T10:00:00.000Z");
-  const suffix = randomUUID();
-  return {
-    id: randomUUID(),
-    name: `Teste Herói ${suffix}`,
-    nickname: `Nick ${suffix}`,
-    universe: "Universo de teste",
-    main_power: "Poder de teste",
-    date_of_birth: "1990-06-18",
-    avatar_url: null,
-    is_active: true,
-    deleted_at: null,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
 
 function buildHeroChangeRow(heroId: string, overrides: Partial<HeroChangeInsert> = {}): HeroChangeInsert {
   return {
@@ -64,39 +34,6 @@ function buildHeroChangeRow(heroId: string, overrides: Partial<HeroChangeInsert>
     created_at: new Date("2024-05-01T11:00:00.000Z"),
     ...overrides,
   };
-}
-
-async function getColumn(db: TestDatabase["db"], columnName: string): Promise<ColumnInfo> {
-  const [rows] = await db.execute(
-    sql`SELECT COLUMN_TYPE, IS_NULLABLE
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'hero_changes' AND COLUMN_NAME = ${columnName}`,
-  );
-  const [column] = rows as unknown as ColumnInfo[];
-  if (!column) {
-    throw new Error(`Coluna ${columnName} não encontrada em hero_changes`);
-  }
-  return column;
-}
-
-async function getIndexes(db: TestDatabase["db"]): Promise<Map<string, { columns: string[] }>> {
-  const [rows] = await db.execute(
-    sql`SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE
-        FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'hero_changes'
-        ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
-  );
-  const indexRows = rows as unknown as IndexColumnRow[];
-  const indexes = new Map<string, { columns: string[] }>();
-  for (const row of indexRows) {
-    const existing = indexes.get(row.INDEX_NAME);
-    if (existing) {
-      existing.columns.push(row.COLUMN_NAME);
-    } else {
-      indexes.set(row.INDEX_NAME, { columns: [row.COLUMN_NAME] });
-    }
-  }
-  return indexes;
 }
 
 describe("schema de hero_changes (MySQL real via Testcontainers)", () => {
@@ -172,7 +109,7 @@ describe("schema de hero_changes (MySQL real via Testcontainers)", () => {
   // information_schema do banco já migrado), quando se lê a definição de
   // `created_at`, então ela é DATETIME(3).
   it("define hero_changes.created_at como DATETIME(3)", async () => {
-    const info = await getColumn(testDatabase.db, "created_at");
+    const info = await getColumn(testDatabase.db, "hero_changes", "created_at");
     expect(info.COLUMN_TYPE).toBe("datetime(3)");
   });
 
@@ -181,7 +118,7 @@ describe("schema de hero_changes (MySQL real via Testcontainers)", () => {
   // `hero_changes`, então existe um índice cobrindo exatamente
   // `(hero_id, created_at, id)`, nessa ordem.
   it("tem um índice cobrindo (hero_id, created_at, id) nessa ordem", async () => {
-    const indexes = await getIndexes(testDatabase.db);
+    const indexes = await getIndexes(testDatabase.db, "hero_changes");
     const expectedOrder = ["hero_id", "created_at", "id"];
 
     const matching = [...indexes.values()].find(

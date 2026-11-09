@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { heroes } from "../src/db/schema/heroes.js";
 import { missionHeroes } from "../src/db/schema/mission_heroes.js";
 import { missions } from "../src/db/schema/missions.js";
+import { buildHeroRow, buildMissionRow } from "./factories.js";
+import { getForeignKeys, getIndexes, getPrimaryKeyColumns } from "./information-schema.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
@@ -17,87 +19,6 @@ import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 // `information_schema` do próprio MySQL real do Testcontainers (já com as
 // três migrations aplicadas) — mesmo padrão de `heroes-schema.test.ts` e
 // `missions-schema.test.ts`.
-
-interface IndexColumnRow {
-  INDEX_NAME: string;
-  SEQ_IN_INDEX: number;
-  COLUMN_NAME: string;
-  NON_UNIQUE: number;
-}
-
-interface ForeignKeyRow {
-  COLUMN_NAME: string;
-  REFERENCED_TABLE_NAME: string | null;
-  REFERENCED_COLUMN_NAME: string | null;
-}
-
-type MissionInsert = typeof missions.$inferInsert;
-type HeroInsert = typeof heroes.$inferInsert;
-
-function buildMissionRow(overrides: Partial<MissionInsert> = {}): MissionInsert {
-  const startsAt = new Date("2024-05-01T10:00:00.000Z");
-  const endsAt = new Date("2024-05-01T12:00:00.000Z");
-  const now = new Date("2024-05-01T09:00:00.000Z");
-  return {
-    id: randomUUID(),
-    title: `Missão de teste ${randomUUID()}`,
-    status: "scheduled",
-    starts_at: startsAt,
-    ends_at: endsAt,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
-
-function buildHeroRow(overrides: Partial<HeroInsert> = {}): HeroInsert {
-  const now = new Date("2024-05-01T10:00:00.000Z");
-  const suffix = randomUUID();
-  return {
-    id: randomUUID(),
-    name: `Teste Herói ${suffix}`,
-    nickname: `Nick ${suffix}`,
-    universe: "Universo de teste",
-    main_power: "Poder de teste",
-    date_of_birth: "1990-06-18",
-    avatar_url: null,
-    is_active: true,
-    deleted_at: null,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
-
-async function getIndexes(db: TestDatabase["db"]): Promise<Map<string, { columns: string[]; unique: boolean }>> {
-  const [rows] = await db.execute(
-    sql`SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE
-        FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mission_heroes'
-        ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
-  );
-  const indexRows = rows as unknown as IndexColumnRow[];
-  const indexes = new Map<string, { columns: string[]; unique: boolean }>();
-  for (const row of indexRows) {
-    const existing = indexes.get(row.INDEX_NAME);
-    if (existing) {
-      existing.columns.push(row.COLUMN_NAME);
-    } else {
-      indexes.set(row.INDEX_NAME, { columns: [row.COLUMN_NAME], unique: row.NON_UNIQUE === 0 });
-    }
-  }
-  return indexes;
-}
-
-async function getForeignKeys(db: TestDatabase["db"]): Promise<ForeignKeyRow[]> {
-  const [rows] = await db.execute(
-    sql`SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
-        FROM information_schema.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mission_heroes'
-          AND REFERENCED_TABLE_NAME IS NOT NULL`,
-  );
-  return rows as unknown as ForeignKeyRow[];
-}
 
 describe("schema de mission_heroes (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;
@@ -137,21 +58,15 @@ describe("schema de mission_heroes (MySQL real via Testcontainers)", () => {
   // `mission_heroes`, então ela é composta por exatamente `(mission_id,
   // hero_id)`, nessa ordem.
   it("tem a PK composta por (mission_id, hero_id)", async () => {
-    const [rows] = await testDatabase.db.execute(
-      sql`SELECT COLUMN_NAME, SEQ_IN_INDEX
-          FROM information_schema.STATISTICS
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mission_heroes' AND INDEX_NAME = 'PRIMARY'
-          ORDER BY SEQ_IN_INDEX`,
-    );
-    const pkRows = rows as unknown as { COLUMN_NAME: string; SEQ_IN_INDEX: number }[];
-    expect(pkRows.map((r) => r.COLUMN_NAME)).toEqual(["mission_id", "hero_id"]);
+    const pkColumns = await getPrimaryKeyColumns(testDatabase.db, "mission_heroes");
+    expect(pkColumns).toEqual(["mission_id", "hero_id"]);
   });
 
   // Etapa 03 · C3.a — Dado o arquivo de migration SQL gerado, quando se lê a
   // definição da tabela `mission_heroes`, então existem constraints FOREIGN
   // KEY de `mission_id` para `missions.id` e de `hero_id` para `heroes.id`.
   it("tem FOREIGN KEY de mission_id -> missions.id e hero_id -> heroes.id", async () => {
-    const foreignKeys = await getForeignKeys(testDatabase.db);
+    const foreignKeys = await getForeignKeys(testDatabase.db, "mission_heroes");
 
     expect(
       foreignKeys.some(
@@ -194,7 +109,7 @@ describe("schema de mission_heroes (MySQL real via Testcontainers)", () => {
   // os índices da tabela `mission_heroes`, então existe um índice cobrindo
   // a coluna `hero_id` (além da PK).
   it("tem um índice cobrindo (hero_id)", async () => {
-    const indexes = await getIndexes(testDatabase.db);
+    const indexes = await getIndexes(testDatabase.db, "mission_heroes");
 
     const matching = [...indexes.entries()].find(
       ([name, index]) => name !== "PRIMARY" && index.columns.length === 1 && index.columns[0] === "hero_id",

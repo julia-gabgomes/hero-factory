@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { idempotencyKeys } from "../src/db/schema/idempotency_keys.js";
+import { getColumn, getPrimaryKeyColumns } from "./information-schema.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
@@ -15,17 +16,6 @@ import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
 // próprio MySQL real do Testcontainers (já com as migrations aplicadas) —
 // mesmo padrão de `hero-changes-schema.test.ts` e `mission-heroes-schema.test.ts`.
 
-interface ColumnInfo {
-  COLUMN_TYPE: string;
-  IS_NULLABLE: "YES" | "NO";
-}
-
-interface IndexColumnRow {
-  INDEX_NAME: string;
-  SEQ_IN_INDEX: number;
-  COLUMN_NAME: string;
-}
-
 type IdempotencyKeyInsert = typeof idempotencyKeys.$inferInsert;
 
 function buildIdempotencyKeyRow(overrides: Partial<IdempotencyKeyInsert> = {}): IdempotencyKeyInsert {
@@ -38,30 +28,6 @@ function buildIdempotencyKeyRow(overrides: Partial<IdempotencyKeyInsert> = {}): 
     created_at: new Date("2024-05-01T10:00:00.000Z"),
     ...overrides,
   };
-}
-
-async function getColumn(db: TestDatabase["db"], columnName: string): Promise<ColumnInfo> {
-  const [rows] = await db.execute(
-    sql`SELECT COLUMN_TYPE, IS_NULLABLE
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'idempotency_keys' AND COLUMN_NAME = ${columnName}`,
-  );
-  const [column] = rows as unknown as ColumnInfo[];
-  if (!column) {
-    throw new Error(`Coluna ${columnName} não encontrada em idempotency_keys`);
-  }
-  return column;
-}
-
-async function getPrimaryKeyColumns(db: TestDatabase["db"]): Promise<string[]> {
-  const [rows] = await db.execute(
-    sql`SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME
-        FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'idempotency_keys' AND INDEX_NAME = 'PRIMARY'
-        ORDER BY SEQ_IN_INDEX`,
-  );
-  const indexRows = rows as unknown as IndexColumnRow[];
-  return indexRows.map((row) => row.COLUMN_NAME);
 }
 
 describe("schema de idempotency_keys (MySQL real via Testcontainers)", () => {
@@ -89,7 +55,7 @@ describe("schema de idempotency_keys (MySQL real via Testcontainers)", () => {
   // `idempotency_keys`, então ela é composta exatamente por `(scope, key)`,
   // nessa ordem.
   it("tem a PK composta por (scope, key)", async () => {
-    const pkColumns = await getPrimaryKeyColumns(testDatabase.db);
+    const pkColumns = await getPrimaryKeyColumns(testDatabase.db, "idempotency_keys");
     expect(pkColumns).toEqual(["scope", "key"]);
   });
 
@@ -128,7 +94,7 @@ describe("schema de idempotency_keys (MySQL real via Testcontainers)", () => {
   // information_schema), quando se lê a definição de `created_at`, então
   // ela é DATETIME(3).
   it("define idempotency_keys.created_at como DATETIME(3)", async () => {
-    const info = await getColumn(testDatabase.db, "created_at");
+    const info = await getColumn(testDatabase.db, "idempotency_keys", "created_at");
     expect(info.COLUMN_TYPE).toBe("datetime(3)");
   });
 
