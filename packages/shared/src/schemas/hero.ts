@@ -1,20 +1,7 @@
 import { z } from "zod";
 import { limits } from "../limits.js";
 import { isFutureUtcPlus14 } from "../dates/not-future.js";
-
-function codePointLength(value: string): number {
-  return Array.from(value).length;
-}
-
-function requiredText(max: number) {
-  return z
-    .string()
-    .trim()
-    .min(1, { message: "Campo obrigatório." })
-    .refine((value) => codePointLength(value) <= max, {
-      message: `Deve ter no máximo ${String(max)} caracteres.`,
-    });
-}
+import { codePointLength, requiredText } from "./text.js";
 
 const avatarUrlPrefixes = ["http://", "https://", "/uploads/"];
 
