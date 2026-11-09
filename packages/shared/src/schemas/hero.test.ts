@@ -208,14 +208,51 @@ describe("createHeroSchema", () => {
       expect(result.error.issues.some((issue) => issue.path[0] === "avatar_url")).toBe(true);
     }
   });
+  // Correção pós-revisão final · calendário real — Dado um objeto com
+  // date_of_birth = "2024-02-31" (31 de fevereiro não existe em nenhum ano),
+  // quando se valida contra o schema de criação, então a validação falha
+  // apontando date_of_birth como inválido, porque o schema deve checar se a
+  // data existe no calendário, não só se casa o formato "YYYY-MM-DD".
+  it("rejeita date_of_birth com dia que não existe no calendário, apontando date_of_birth", () => {
+    const input = { ...validCreateInput(), date_of_birth: "2024-02-31" };
+
+    const result = createHeroSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "date_of_birth"),
+      ).toBe(true);
+    }
+  });
+
+  // Correção pós-revisão final · avatar_url vazio tratado como ausente —
+  // Dado um objeto com avatar_url = "" (string vazia após trim), quando se
+  // valida contra o schema de criação, então a validação passa e o valor
+  // resultante não tem avatar_url (ou é undefined), do mesmo jeito que se o
+  // campo não tivesse sido enviado, em vez de ser rejeitado por não casar
+  // nenhum prefixo válido.
+  it("trata avatar_url vazio como campo ausente, sem erro de formato", () => {
+    const input = { ...validCreateInput(), avatar_url: "" };
+
+    const result = createHeroSchema.safeParse(input);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.avatar_url).toBeUndefined();
+    }
+  });
 });
 
 describe("updateHeroSchema", () => {
-  // Etapa 05 · C7.a — Dado um objeto com só nickname preenchido, quando se
-  // valida contra o schema de atualização, então a validação passa e os
-  // demais campos ficam ausentes (não são exigidos).
-  it("aceita um objeto com só nickname preenchido, sem exigir os demais campos", () => {
-    const result = updateHeroSchema.safeParse({ nickname: "Super-Homem" });
+  // Etapa 05 · C7.a — Dado um objeto com nickname e version preenchidos,
+  // quando se valida contra o schema de atualização, então a validação
+  // passa e os demais campos ficam ausentes (não são exigidos). `version`
+  // é obrigatório (lock otimista do PATCH, CLAUDE.md §3.3), por isso entra
+  // no payload mesmo este cenário sendo sobre os demais campos serem
+  // opcionais.
+  it("aceita um objeto com nickname e version preenchidos, sem exigir os demais campos", () => {
+    const result = updateHeroSchema.safeParse({ nickname: "Super-Homem", version: 1 });
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -237,6 +274,32 @@ describe("updateHeroSchema", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.path[0] === "universe")).toBe(true);
+    }
+  });
+
+  // Correção do bloqueante da revisão final · version obrigatório — Dado um
+  // objeto com version = 3 e nenhum outro campo, quando se valida contra o
+  // schema de atualização, então a validação passa (version é aceito, e os
+  // demais campos continuam opcionais).
+  it("aceita um objeto com só version preenchido", () => {
+    const result = updateHeroSchema.safeParse({ version: 3 });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.version).toBe(3);
+    }
+  });
+
+  // Correção do bloqueante da revisão final · version obrigatório — Dado um
+  // objeto sem o campo version (ex.: só { nickname: "Super" }), quando se
+  // valida contra o schema de atualização, então a validação falha
+  // apontando version como obrigatório.
+  it("rejeita um objeto sem o campo version, apontando version como obrigatório", () => {
+    const result = updateHeroSchema.safeParse({ nickname: "Super" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path[0] === "version")).toBe(true);
     }
   });
 });

@@ -47,6 +47,9 @@
 **Desvios do planejado**
 - Na primeira volta desta etapa, a validação de formato de `avatar_url` (apenas `http`/`https` ou URL de `/uploads/`) não tinha sido incluída, porque não constava nos critérios de aceite originais (lacuna da divisão em etapas, não da implementação). Acrescentado como C8 e cenários C8.a-c; a validação de formato foi implementada em seguida (`optionalAvatarUrl` em `hero.ts`, substituindo o antigo `optionalText` para esse campo).
 
-**Sugestões da revisão**
-- `packages/shared/src/schemas/hero.ts:40` — `dateOfBirthSchema` valida só o formato `YYYY-MM-DD` e a não-futuridade, sem checar se mês/dia formam uma data real de calendário (ex.: `"2024-02-31"` passa); não exigido pelo critério C5, mas vale decidir em qual camada essa checagem calendárica entra.
-- `packages/shared/src/index.ts` — nem `schemas/hero.ts` nem `schemas/common.ts` são reexportados pelo barrel; consistente com o que já existia, mas confirmar quando a API/tela forem consumir esses schemas.
+**Sugestões da revisão (todas aplicadas)**
+- `date_of_birth` passou a validar calendário real (`isValidCalendarDate`, via `Date.UTC` + getters UTC, sem depender de fuso do processo): `"2024-02-31"` agora é rejeitado.
+- `avatar_url = ""` (vazio após trim) agora é tratado como ausente (`undefined`), não como erro de formato.
+- `packages/shared/src/index.ts` agora reexporta (`export *`) de `limits.js`, `errors/codes.js`, `dates/not-future.js`, `schemas/common.js`, `schemas/hero.js` e `schemas/mission.js`; confirmado que não há colisão de nomes entre os módulos.
+
+**Correção pós-revisão final:** `updateHeroSchema` não exigia `version`, campo exigido pelo CLAUDE.md §3.3 no corpo do PATCH /heroes/:id para o lock otimista ("Edição simultânea"). Corrigido para `createHeroSchema.partial().extend({ version: z.number().int() })`. O teste pré-existente C7.a precisou de ajuste de payload (`{ nickname: "Super-Homem", version: 1 }` em vez de só `{ nickname: "Super-Homem" }`) para continuar válido com `version` obrigatório, sem perder a asserção original de que os demais campos continuam opcionais.
