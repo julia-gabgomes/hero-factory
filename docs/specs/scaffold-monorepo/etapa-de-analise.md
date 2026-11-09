@@ -1,6 +1,6 @@
 # Scaffold do monorepo
 
-**Tipo:** funcionalidade · **Status:** em andamento · **Atualizada em:** 2026-11-09
+**Tipo:** funcionalidade · **Status:** concluída · **Atualizada em:** 2026-11-09
 
 ## Problema
 
