@@ -1,0 +1,69 @@
+name: hero-factory
+
+services:
+  mysql:
+    image: mysql:8.4
+    command:
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --character-set-server=utf8mb4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hero_factory}
+      MYSQL_USER: ${MYSQL_USER:-hero_factory}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hero_factory}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD:-root}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # Placeholder: sem lógica de migration ainda (entra quando apps/api tiver
+  # schema e CLI de migrate/seed reais). Depende só do mysql estar saudável.
+  migrate:
+    image: node:${NODE_VERSION:-24}
+    command: ["tail", "-f", "/dev/null"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Placeholder: ainda não depende de "migrate terminar" (migrate não tem
+  # lógica real nesta etapa, então não há nada para esperar além do mysql
+  # estar saudável). Quando migrate passar a rodar migrations/seed de
+  # verdade, api1/api2/worker devem passar a depender dele terminar com
+  # sucesso (ex. `condition: service_completed_successfully`).
+  api1:
+    image: node:${NODE_VERSION:-24}
+    command: ["tail", "-f", "/dev/null"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  api2:
+    image: node:${NODE_VERSION:-24}
+    command: ["tail", "-f", "/dev/null"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  worker:
+    image: node:${NODE_VERSION:-24}
+    command: ["tail", "-f", "/dev/null"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
