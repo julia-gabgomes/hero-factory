@@ -126,7 +126,7 @@ Ordem de subida no `docker compose up --build`:
 
 ```
 mysql (healthcheck)
- └─ migrate  (one-shot: migrations + seed de 100k idempotente se SEED_ON_START=true, o padrão)
+ └─ migrate  (one-shot: migrations + seed de 100k idempotente se SEED_ON_START=true)
      ├─ api1
      ├─ api2
      └─ worker
@@ -267,8 +267,8 @@ Estes contratos valem para os dois lados. A API os impõe e a tela os consome.
 
 | Objetivo | Comando |
 |---|---|
-| Subir tudo (com seed de 100k) | `docker compose up --build`, depois abrir http://localhost |
-| Subir com o banco vazio | `SEED_ON_START=false docker compose up --build` |
+| Subir tudo (banco vazio, o padrão) | `docker compose up --build`, depois abrir http://localhost |
+| Subir com o seed de 100k | `SEED_ON_START=true docker compose up --build` |
 | Derrubar e apagar os dados | `docker compose down -v` |
 | Instalar dependências | `pnpm install` |
 | Dev local (hot reload) | `docker compose up -d mysql` e depois `pnpm dev` (API com `tsx watch`, web com Vite e proxy de `/api`) |
