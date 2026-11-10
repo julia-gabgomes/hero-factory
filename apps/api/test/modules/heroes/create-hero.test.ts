@@ -15,7 +15,9 @@ import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 //   `version = 1`, `is_active = true`, `deleted_at = null` e
 //   `created_at`/`updated_at` em ISO 8601 UTC.
 
-function validCreatePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function validCreatePayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   const suffix = randomUUID();
   return {
     name: `Herói de Teste ${suffix}`,
@@ -89,10 +91,17 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(body.version).toBe(1);
     expect(body.is_active).toBe(true);
     expect(body.name).toBe(payload.name);
-    expect(body.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
-    expect(body.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+    expect(body.created_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/,
+    );
+    expect(body.updated_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/,
+    );
 
-    const rows = await testDatabase.db.select().from(heroes).where(eq(heroes.id, body.id));
+    const rows = await testDatabase.db
+      .select()
+      .from(heroes)
+      .where(eq(heroes.id, body.id));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.version).toBe(1);
     expect(rows[0]?.is_active).toBe(true);
@@ -124,10 +133,16 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
 
     expect([first.statusCode, second.statusCode].sort()).toEqual([201, 201]);
 
-    const replayedFlags = [first.headers["idempotent-replayed"], second.headers["idempotent-replayed"]];
+    const replayedFlags = [
+      first.headers["idempotent-replayed"],
+      second.headers["idempotent-replayed"],
+    ];
     expect(replayedFlags.filter((flag) => flag === "true")).toHaveLength(1);
 
-    const rows = await testDatabase.db.select().from(heroes).where(eq(heroes.name, payload.name as string));
+    const rows = await testDatabase.db
+      .select()
+      .from(heroes)
+      .where(eq(heroes.name, payload.name as string));
     expect(rows).toHaveLength(1);
   });
 
@@ -191,7 +206,10 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(body.version).toBe(1);
     expect(body.deleted_at ?? null).toBeNull();
 
-    const rows = await testDatabase.db.select().from(heroes).where(eq(heroes.id, body.id));
+    const rows = await testDatabase.db
+      .select()
+      .from(heroes)
+      .where(eq(heroes.id, body.id));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.version).toBe(1);
     expect(rows[0]?.deleted_at).toBeNull();
@@ -209,7 +227,9 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     });
 
     expect(response.statusCode).toBe(422);
-    const body = response.json<{ error: { code: string; fields: Record<string, string> | null } }>();
+    const body = response.json<{
+      error: { code: string; fields: Record<string, string> | null };
+    }>();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(body.error.fields?.nickname).toBeTruthy();
   });
@@ -226,7 +246,9 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     });
 
     expect(response.statusCode).toBe(422);
-    const body = response.json<{ error: { code: string; fields: Record<string, string> | null } }>();
+    const body = response.json<{
+      error: { code: string; fields: Record<string, string> | null };
+    }>();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(body.error.fields?.date_of_birth).toBeTruthy();
   });

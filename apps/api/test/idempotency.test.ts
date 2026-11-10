@@ -5,7 +5,10 @@ import { heroes } from "../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../src/db/schema/idempotency_keys.js";
 import { buildHeroRow } from "./factories.js";
 import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
-import { IdempotencyKeyMismatchError, withIdempotency } from "../src/http/idempotency.js";
+import {
+  IdempotencyKeyMismatchError,
+  withIdempotency,
+} from "../src/http/idempotency.js";
 
 // Contrato assumido para esta etapa (ainda não implementado):
 // - `apps/api/src/http/idempotency.ts` exporta:
@@ -74,21 +77,27 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     const scope = "test-mismatch";
     const key = randomUUID();
 
-    await withIdempotency(testDatabase.db, { scope, key, requestHash: "abc" }, () =>
-      Promise.resolve({ status: 200, body: { ok: true } }),
+    await withIdempotency(
+      testDatabase.db,
+      { scope, key, requestHash: "abc" },
+      () => Promise.resolve({ status: 200, body: { ok: true } }),
     );
 
     let caughtError: unknown;
     try {
-      await withIdempotency(testDatabase.db, { scope, key, requestHash: "xyz" }, () =>
-        Promise.resolve({ status: 200, body: { ok: true } }),
+      await withIdempotency(
+        testDatabase.db,
+        { scope, key, requestHash: "xyz" },
+        () => Promise.resolve({ status: 200, body: { ok: true } }),
       );
     } catch (error) {
       caughtError = error;
     }
 
     expect(caughtError).toBeInstanceOf(IdempotencyKeyMismatchError);
-    expect((caughtError as { code?: unknown }).code).toBe("IDEMPOTENCY_KEY_MISMATCH");
+    expect((caughtError as { code?: unknown }).code).toBe(
+      "IDEMPOTENCY_KEY_MISMATCH",
+    );
   });
 
   // Etapa 01 · C3.a — Dado uma chave nunca usada, quando se chama
@@ -100,13 +109,21 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     const requestHash = `hash-${randomUUID()}`;
 
     let callCount = 0;
-    const result = await withIdempotency(testDatabase.db, { scope, key, requestHash }, () => {
-      callCount += 1;
-      return Promise.resolve({ status: 200, body: { ok: true } });
-    });
+    const result = await withIdempotency(
+      testDatabase.db,
+      { scope, key, requestHash },
+      () => {
+        callCount += 1;
+        return Promise.resolve({ status: 200, body: { ok: true } });
+      },
+    );
 
     expect(callCount).toBe(1);
-    expect(result).toEqual({ status: 200, body: { ok: true }, replayed: false });
+    expect(result).toEqual({
+      status: 200,
+      body: { ok: true },
+      replayed: false,
+    });
   });
 
   // Etapa 01 · C4.a — Dado uma `fn` que insere uma linha de verdade em
@@ -121,7 +138,9 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     const requestHash = `hash-${randomUUID()}`;
     const heroId = randomUUID();
 
-    const failingFn = async (tx: Parameters<Parameters<typeof withIdempotency>[2]>[0]) => {
+    const failingFn = async (
+      tx: Parameters<Parameters<typeof withIdempotency>[2]>[0],
+    ) => {
       await tx.insert(heroes).values(buildHeroRow({ id: heroId }));
       throw new Error("falha proposital de fn");
     };
@@ -130,22 +149,35 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
       withIdempotency(testDatabase.db, { scope, key, requestHash }, failingFn),
     ).rejects.toThrow("falha proposital de fn");
 
-    const persistedHero = await testDatabase.db.select().from(heroes).where(eq(heroes.id, heroId));
+    const persistedHero = await testDatabase.db
+      .select()
+      .from(heroes)
+      .where(eq(heroes.id, heroId));
     expect(persistedHero).toHaveLength(0);
 
     const persistedKey = await testDatabase.db
       .select()
       .from(idempotencyKeys)
-      .where(and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)));
+      .where(
+        and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)),
+      );
     expect(persistedKey).toHaveLength(0);
 
     let retryCallCount = 0;
-    const retryResult = await withIdempotency(testDatabase.db, { scope, key, requestHash }, () => {
-      retryCallCount += 1;
-      return Promise.resolve({ status: 201, body: { retried: true } });
-    });
+    const retryResult = await withIdempotency(
+      testDatabase.db,
+      { scope, key, requestHash },
+      () => {
+        retryCallCount += 1;
+        return Promise.resolve({ status: 201, body: { retried: true } });
+      },
+    );
 
     expect(retryCallCount).toBe(1);
-    expect(retryResult).toEqual({ status: 201, body: { retried: true }, replayed: false });
+    expect(retryResult).toEqual({
+      status: 201,
+      body: { retried: true },
+      replayed: false,
+    });
   });
 });

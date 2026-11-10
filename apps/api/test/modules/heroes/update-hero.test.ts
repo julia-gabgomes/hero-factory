@@ -28,7 +28,9 @@ type HeroBody = {
   updated_at: string;
 };
 
-function validCreatePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function validCreatePayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   const suffix = randomUUID();
   return {
     name: `Herói de Teste ${suffix}`,
@@ -209,7 +211,9 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
       }),
     ]);
 
-    const statusCodes = [first.statusCode, second.statusCode].sort((a, b) => a - b);
+    const statusCodes = [first.statusCode, second.statusCode].sort(
+      (a, b) => a - b,
+    );
     expect(statusCodes).toEqual([200, 409]);
 
     const winner = first.statusCode === 200 ? first : second;

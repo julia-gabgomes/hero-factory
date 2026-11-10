@@ -13,6 +13,7 @@ import {
   diffCreatedHero,
   diffDeletedHero,
   diffUpdatedHero,
+  type HeroChangeInput,
 } from "./history.js";
 import {
   HISTORY_PAGE_SIZE,
@@ -171,6 +172,35 @@ async function lockExistingHeroOrThrow(
   return before;
 }
 
+async function resolveOptimisticLockOutcome(
+  tx: IdempotencyTransaction,
+  id: string,
+  applyUpdate: (before: HeroResponse) => Promise<number>,
+  buildChanges: (before: HeroResponse, now: Date) => HeroChangeInput[],
+): Promise<HeroResponse> {
+  const before = await lockExistingHeroOrThrow(tx, id);
+
+  const affectedRows = await applyUpdate(before);
+
+  if (affectedRows === 0) {
+    throw versionConflict(
+      "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+      before,
+    );
+  }
+
+  const now = new Date();
+  await insertHeroChanges(tx, buildChanges(before, now));
+
+  const updated = await findHeroById(tx, id);
+
+  if (!updated) {
+    throw notFound("Herói não encontrado.");
+  }
+
+  return updated;
+}
+
 export async function updateHero(
   db: Database,
   id: string,
@@ -178,33 +208,15 @@ export async function updateHero(
 ): Promise<HeroResponse> {
   const fields = extractUpdateFields(body);
 
-  return db.transaction(async (tx) => {
-    const before = await lockExistingHeroOrThrow(tx, id);
-
-    const affectedRows = await updateHeroWithOptimisticLock(tx, {
+  return db.transaction((tx) =>
+    resolveOptimisticLockOutcome(
+      tx,
       id,
-      version: body.version,
-      fields,
-    });
-
-    if (affectedRows === 0) {
-      throw versionConflict(
-        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
-        before,
-      );
-    }
-
-    const now = new Date();
-    await insertHeroChanges(tx, diffUpdatedHero(before, fields, now));
-
-    const updated = await findHeroById(tx, id);
-
-    if (!updated) {
-      throw notFound("Herói não encontrado.");
-    }
-
-    return updated;
-  });
+      () =>
+        updateHeroWithOptimisticLock(tx, { id, version: body.version, fields }),
+      (before, now) => diffUpdatedHero(before, fields, now),
+    ),
+  );
 }
 
 export async function deleteHero(
@@ -212,32 +224,14 @@ export async function deleteHero(
   id: string,
   version: number,
 ): Promise<HeroResponse> {
-  return db.transaction(async (tx) => {
-    const before = await lockExistingHeroOrThrow(tx, id);
-
-    const affectedRows = await deleteHeroWithOptimisticLock(tx, {
+  return db.transaction((tx) =>
+    resolveOptimisticLockOutcome(
+      tx,
       id,
-      version,
-    });
-
-    if (affectedRows === 0) {
-      throw versionConflict(
-        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
-        before,
-      );
-    }
-
-    const now = new Date();
-    await insertHeroChanges(tx, diffDeletedHero(before, now));
-
-    const updated = await findHeroById(tx, id);
-
-    if (!updated) {
-      throw notFound("Herói não encontrado.");
-    }
-
-    return updated;
-  });
+      () => deleteHeroWithOptimisticLock(tx, { id, version }),
+      (before, now) => diffDeletedHero(before, now),
+    ),
+  );
 }
 
 async function setHeroActiveState(
@@ -246,33 +240,14 @@ async function setHeroActiveState(
   version: number,
   isActive: boolean,
 ): Promise<HeroResponse> {
-  return db.transaction(async (tx) => {
-    const before = await lockExistingHeroOrThrow(tx, id);
-
-    const affectedRows = await setHeroActiveStateWithOptimisticLock(tx, {
+  return db.transaction((tx) =>
+    resolveOptimisticLockOutcome(
+      tx,
       id,
-      version,
-      isActive,
-    });
-
-    if (affectedRows === 0) {
-      throw versionConflict(
-        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
-        before,
-      );
-    }
-
-    const now = new Date();
-    await insertHeroChanges(tx, diffActiveStateChange(before, isActive, now));
-
-    const updated = await findHeroById(tx, id);
-
-    if (!updated) {
-      throw notFound("Herói não encontrado.");
-    }
-
-    return updated;
-  });
+      () => setHeroActiveStateWithOptimisticLock(tx, { id, version, isActive }),
+      (before, now) => diffActiveStateChange(before, isActive, now),
+    ),
+  );
 }
 
 export async function activateHero(

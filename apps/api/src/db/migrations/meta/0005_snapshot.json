@@ -60,11 +60,7 @@
       "indexes": {
         "hero_changes_hero_id_created_at_id_idx": {
           "name": "hero_changes_hero_id_created_at_id_idx",
-          "columns": [
-            "hero_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["hero_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -73,12 +69,8 @@
           "name": "hero_changes_hero_id_heroes_id_fk",
           "tableFrom": "hero_changes",
           "tableTo": "heroes",
-          "columnsFrom": [
-            "hero_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["hero_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -86,9 +78,7 @@
       "compositePrimaryKeys": {
         "hero_changes_id": {
           "name": "hero_changes_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -187,22 +177,12 @@
       "indexes": {
         "heroes_name_nickname_date_of_birth_unique": {
           "name": "heroes_name_nickname_date_of_birth_unique",
-          "columns": [
-            "name",
-            "nickname",
-            "date_of_birth"
-          ],
+          "columns": ["name", "nickname", "date_of_birth"],
           "isUnique": true
         },
         "heroes_deleted_at_created_at_id_name_nickname_idx": {
           "name": "heroes_deleted_at_created_at_id_name_nickname_idx",
-          "columns": [
-            "deleted_at",
-            "created_at",
-            "id",
-            "name",
-            "nickname"
-          ],
+          "columns": ["deleted_at", "created_at", "id", "name", "nickname"],
           "isUnique": false
         }
       },
@@ -210,9 +190,7 @@
       "compositePrimaryKeys": {
         "heroes_id": {
           "name": "heroes_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -269,10 +247,7 @@
       "compositePrimaryKeys": {
         "idempotency_keys_scope_key_pk": {
           "name": "idempotency_keys_scope_key_pk",
-          "columns": [
-            "scope",
-            "key"
-          ]
+          "columns": ["scope", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -299,9 +274,7 @@
       "indexes": {
         "mission_heroes_hero_id_idx": {
           "name": "mission_heroes_hero_id_idx",
-          "columns": [
-            "hero_id"
-          ],
+          "columns": ["hero_id"],
           "isUnique": false
         }
       },
@@ -310,12 +283,8 @@
           "name": "mission_heroes_mission_id_missions_id_fk",
           "tableFrom": "mission_heroes",
           "tableTo": "missions",
-          "columnsFrom": [
-            "mission_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["mission_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -323,12 +292,8 @@
           "name": "mission_heroes_hero_id_heroes_id_fk",
           "tableFrom": "mission_heroes",
           "tableTo": "heroes",
-          "columnsFrom": [
-            "hero_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["hero_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -336,10 +301,7 @@
       "compositePrimaryKeys": {
         "mission_heroes_mission_id_hero_id_pk": {
           "name": "mission_heroes_mission_id_hero_id_pk",
-          "columns": [
-            "mission_id",
-            "hero_id"
-          ]
+          "columns": ["mission_id", "hero_id"]
         }
       },
       "uniqueConstraints": {},
@@ -401,11 +363,7 @@
       "indexes": {
         "missions_status_starts_at_ends_at_idx": {
           "name": "missions_status_starts_at_ends_at_idx",
-          "columns": [
-            "status",
-            "starts_at",
-            "ends_at"
-          ],
+          "columns": ["status", "starts_at", "ends_at"],
           "isUnique": false
         }
       },
@@ -413,9 +371,7 @@
       "compositePrimaryKeys": {
         "missions_id": {
           "name": "missions_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},

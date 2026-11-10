@@ -46,3 +46,5 @@ Toda criação, edição, exclusão, ativação e inativação de herói passa a
 **Sugestões da revisão**
 - `ON DELETE CASCADE` em `hero_changes.hero_id` facilita que um futuro script de limpeza apague fisicamente um herói e leve o histórico junto sem aviso, já que o domínio nunca deveria apagar heróis de verdade (só `deleted_at`). Vale documentar essa decisão em `docs/decisions.md` também, não só aqui.
 - `getHeroHistoryPage` não valida o formato de `from`/`to` antes de converter para `Date` (uma string inválida gera `Invalid Date` silenciosamente); considerar `z.string().datetime()` no schema de query da rota.
+
+**Correção pós-revisão final:** ao reescrever `updateHero`/`deleteHero`/`setHeroActiveState` para rodar em transação, esta etapa reintroduziu a triplicação do bloco "travar → update → checar affectedRows → 409/diff → busca" que a etapa 07 tinha eliminado com `resolveOptimisticLockOutcome`. Recriado o helper (agora recebendo a transação já aberta e dois callbacks: `applyUpdate`/`buildChanges`), eliminando a triplicação de novo, sem mudar o comportamento de nenhuma das 3 operações.

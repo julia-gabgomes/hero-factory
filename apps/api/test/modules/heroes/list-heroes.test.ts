@@ -13,7 +13,9 @@ import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 //   por página. Ainda sem busca (`q`) nem cursor de paginação de verdade
 //   (etapa 08).
 
-function validCreatePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function validCreatePayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   const suffix = randomUUID();
   return {
     name: `Herói de Teste ${suffix}`,

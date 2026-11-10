@@ -11,7 +11,9 @@ import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 //   existe e não está excluído, e 404 `NOT_FOUND` quando o id não existe ou
 //   quando o herói foi excluído (`deleted_at` preenchido).
 
-function validCreatePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function validCreatePayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   const suffix = randomUUID();
   return {
     name: `Herói de Teste ${suffix}`,
