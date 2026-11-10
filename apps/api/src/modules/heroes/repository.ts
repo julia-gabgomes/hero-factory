@@ -1,7 +1,8 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { heroes } from "../../db/schema/heroes.js";
 import type { Database } from "../../db/client.js";
 import type { IdempotencyTransaction } from "../../http/idempotency.js";
+import type { HeroListCursor } from "../../http/cursor.js";
 
 export interface NewHeroRow {
   id: string;
@@ -81,15 +82,50 @@ export async function findHeroById(
   return mapRowToHeroResponse(row);
 }
 
-const LIST_PAGE_SIZE = 10;
+export const LIST_PAGE_SIZE = 10;
 
-export async function listHeroes(db: Database): Promise<HeroResponse[]> {
+export function escapeLikeTerm(term: string): string {
+  return term.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+export interface ListHeroesParams {
+  q?: string;
+  cursor?: HeroListCursor;
+  limit?: number;
+}
+
+export async function listHeroes(
+  db: Database,
+  params: ListHeroesParams = {},
+): Promise<HeroResponse[]> {
+  const { q, cursor, limit = LIST_PAGE_SIZE } = params;
+
+  const conditions = [isNull(heroes.deleted_at)];
+
+  if (q !== undefined && q !== "") {
+    const pattern = `%${escapeLikeTerm(q)}%`;
+    const searchCondition = or(
+      sql`${heroes.name} LIKE ${pattern}`,
+      sql`${heroes.nickname} LIKE ${pattern}`,
+    );
+
+    if (searchCondition !== undefined) {
+      conditions.push(searchCondition);
+    }
+  }
+
+  if (cursor !== undefined) {
+    conditions.push(
+      sql`(${heroes.created_at}, ${heroes.id}) < (${new Date(cursor.created_at)}, ${cursor.id})`,
+    );
+  }
+
   const rows = await db
     .select()
     .from(heroes)
-    .where(isNull(heroes.deleted_at))
+    .where(and(...conditions))
     .orderBy(desc(heroes.created_at), desc(heroes.id))
-    .limit(LIST_PAGE_SIZE);
+    .limit(limit);
 
   return rows.map((row) => mapRowToHeroResponse(row));
 }

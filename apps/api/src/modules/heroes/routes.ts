@@ -15,6 +15,10 @@ import {
 
 const heroParamsSchema = z.object({ id: z.string() });
 const versionOnlyBodySchema = z.object({ version: z.number().int() });
+const listHeroesQuerySchema = z.object({
+  q: z.string().optional(),
+  cursor: z.string().optional(),
+});
 
 export function heroRoutes(app: FastifyInstance): void {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
@@ -44,11 +48,18 @@ export function heroRoutes(app: FastifyInstance): void {
     },
   );
 
-  typedApp.get("/", async (_request, reply) => {
-    const page = await listHeroesPage(app.db);
+  typedApp.get(
+    "/",
+    { schema: { querystring: listHeroesQuerySchema } },
+    async (request, reply) => {
+      const page = await listHeroesPage(app.db, {
+        q: request.query.q,
+        cursor: request.query.cursor,
+      });
 
-    reply.code(200).send(page);
-  });
+      reply.code(200).send(page);
+    },
+  );
 
   typedApp.get(
     "/:id",

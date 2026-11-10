@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
 import type { CreateHeroInput, UpdateHeroInput } from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
-import { notFound, versionConflict } from "../../http/errors.js";
+import { badRequest, notFound, versionConflict } from "../../http/errors.js";
+import { decodeCursor, encodeCursor } from "../../http/cursor.js";
 import { withIdempotency } from "../../http/idempotency.js";
 import {
+  LIST_PAGE_SIZE,
   deleteHeroWithOptimisticLock,
   findHeroById,
   insertHero,
@@ -79,10 +81,39 @@ export interface HeroPage {
   prev_cursor: string | null;
 }
 
-export async function listHeroesPage(db: Database): Promise<HeroPage> {
-  const data = await listHeroes(db);
+export interface ListHeroesPageParams {
+  q?: string;
+  cursor?: string;
+}
 
-  return { data, next_cursor: null, prev_cursor: null };
+export async function listHeroesPage(
+  db: Database,
+  params: ListHeroesPageParams = {},
+): Promise<HeroPage> {
+  const { q, cursor } = params;
+
+  const decodedCursor = cursor !== undefined ? decodeCursor(cursor) : null;
+
+  if (cursor !== undefined && decodedCursor === null) {
+    throw badRequest("O cursor de paginação é inválido.");
+  }
+
+  const rows = await listHeroes(db, {
+    q,
+    cursor: decodedCursor ?? undefined,
+    limit: LIST_PAGE_SIZE + 1,
+  });
+
+  const hasNextPage = rows.length > LIST_PAGE_SIZE;
+  const data = hasNextPage ? rows.slice(0, LIST_PAGE_SIZE) : rows;
+  const lastHero = data.at(-1);
+
+  const next_cursor =
+    hasNextPage && lastHero !== undefined
+      ? encodeCursor({ created_at: lastHero.created_at, id: lastHero.id })
+      : null;
+
+  return { data, next_cursor, prev_cursor: null };
 }
 
 export async function getHeroById(
