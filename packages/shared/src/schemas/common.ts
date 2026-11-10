@@ -33,3 +33,9 @@ export type CursorPage<ItemSchema extends z.ZodType> = z.infer<
 export const idempotencyKeySchema = z.string().uuid();
 
 export type IdempotencyKey = z.infer<typeof idempotencyKeySchema>;
+
+export const versionOnlyBodySchema = z.object({
+  version: z.number().int(),
+});
+
+export type VersionOnlyBody = z.infer<typeof versionOnlyBodySchema>;

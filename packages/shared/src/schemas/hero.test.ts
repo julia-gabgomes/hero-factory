@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createHeroSchema, updateHeroSchema } from "./hero.js";
+import {
+  createHeroSchema,
+  heroChangeSchema,
+  heroHistoryQuerySchema,
+  heroMissionsQuerySchema,
+  heroResponseSchema,
+  listHeroesQuerySchema,
+  updateHeroSchema,
+} from "./hero.js";
 
 // Nomes e assinaturas adotados (a etapa não os fixa):
 // - `createHeroSchema`: schema de criação. Campos `name`, `nickname`,
@@ -50,7 +58,9 @@ describe("createHeroSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "name")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "name"),
+      ).toBe(true);
     }
   });
 
@@ -64,7 +74,9 @@ describe("createHeroSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "nickname")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "nickname"),
+      ).toBe(true);
     }
   });
 
@@ -92,7 +104,9 @@ describe("createHeroSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "name")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "name"),
+      ).toBe(true);
     }
   });
 
@@ -171,7 +185,10 @@ describe("createHeroSchema", () => {
   // avatar_url = "https://exemplo.com/avatar.png", quando se valida contra o
   // schema de criação, então a validação passa.
   it("aceita avatar_url começando com https://", () => {
-    const input = { ...validCreateInput(), avatar_url: "https://exemplo.com/avatar.png" };
+    const input = {
+      ...validCreateInput(),
+      avatar_url: "https://exemplo.com/avatar.png",
+    };
 
     const result = createHeroSchema.safeParse(input);
 
@@ -199,13 +216,18 @@ describe("createHeroSchema", () => {
   // schema de criação, então a validação falha apontando avatar_url como
   // inválido.
   it("rejeita avatar_url que não começa com http://, https:// ou /uploads/", () => {
-    const input = { ...validCreateInput(), avatar_url: "ftp://exemplo.com/avatar.png" };
+    const input = {
+      ...validCreateInput(),
+      avatar_url: "ftp://exemplo.com/avatar.png",
+    };
 
     const result = createHeroSchema.safeParse(input);
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "avatar_url")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "avatar_url"),
+      ).toBe(true);
     }
   });
   // Correção pós-revisão final · calendário real — Dado um objeto com
@@ -252,7 +274,10 @@ describe("updateHeroSchema", () => {
   // no payload mesmo este cenário sendo sobre os demais campos serem
   // opcionais.
   it("aceita um objeto com nickname e version preenchidos, sem exigir os demais campos", () => {
-    const result = updateHeroSchema.safeParse({ nickname: "Super-Homem", version: 1 });
+    const result = updateHeroSchema.safeParse({
+      nickname: "Super-Homem",
+      version: 1,
+    });
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -273,7 +298,9 @@ describe("updateHeroSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "universe")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "universe"),
+      ).toBe(true);
     }
   });
 
@@ -299,7 +326,109 @@ describe("updateHeroSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path[0] === "version")).toBe(true);
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === "version"),
+      ).toBe(true);
     }
+  });
+});
+
+describe("heroResponseSchema", () => {
+  function validHeroResponse(): Record<string, unknown> {
+    return {
+      id: "01971f6e-0000-7000-8000-000000000000",
+      name: "Clark Kent",
+      nickname: "Super-Homem",
+      universe: "DC",
+      main_power: "Voo",
+      date_of_birth: "1990-06-18",
+      avatar_url: null,
+      is_active: true,
+      deleted_at: null,
+      version: 1,
+      created_at: "2024-05-01T10:00:00.000Z",
+      updated_at: "2024-05-01T10:00:00.000Z",
+    };
+  }
+
+  it("aceita uma resposta de herói válida, igual à devolvida pela API", () => {
+    const result = heroResponseSchema.safeParse(validHeroResponse());
+
+    expect(result.success).toBe(true);
+  });
+
+  it("aceita avatar_url e deleted_at nulos", () => {
+    const result = heroResponseSchema.safeParse(validHeroResponse());
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.avatar_url).toBeNull();
+      expect(result.data.deleted_at).toBeNull();
+    }
+  });
+
+  it("rejeita quando falta um campo obrigatório, como version", () => {
+    const withoutVersion = validHeroResponse();
+    delete withoutVersion.version;
+
+    const result = heroResponseSchema.safeParse(withoutVersion);
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("heroChangeSchema", () => {
+  it("aceita uma linha de histórico com field, old_value e new_value preenchidos", () => {
+    const result = heroChangeSchema.safeParse({
+      event: "updated",
+      field: "nickname",
+      old_value: "Super",
+      new_value: "Super-Homem",
+      created_at: "2024-05-01T10:00:00.000Z",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejeita um event fora do conjunto conhecido", () => {
+    const result = heroChangeSchema.safeParse({
+      event: "renamed",
+      field: "nickname",
+      old_value: "Super",
+      new_value: "Super-Homem",
+      created_at: "2024-05-01T10:00:00.000Z",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("schemas de query de herói", () => {
+  it("listHeroesQuerySchema aceita q e cursor opcionais", () => {
+    expect(listHeroesQuerySchema.safeParse({}).success).toBe(true);
+    expect(
+      listHeroesQuerySchema.safeParse({ q: "joao", cursor: "abc" }).success,
+    ).toBe(true);
+  });
+
+  it("heroHistoryQuerySchema aceita field, from, to e cursor opcionais", () => {
+    expect(heroHistoryQuerySchema.safeParse({}).success).toBe(true);
+    expect(
+      heroHistoryQuerySchema.safeParse({
+        field: "nickname",
+        from: "2024-01-01T00:00:00.000Z",
+        to: "2024-12-31T00:00:00.000Z",
+        cursor: "abc",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("heroMissionsQuerySchema aceita só situações válidas", () => {
+    expect(
+      heroMissionsQuerySchema.safeParse({ status: "succeeded" }).success,
+    ).toBe(true);
+    expect(
+      heroMissionsQuerySchema.safeParse({ status: "pausada" }).success,
+    ).toBe(false);
   });
 });

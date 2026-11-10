@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createMissionSchema, missionStatusSchema } from "./mission.js";
+import {
+  createMissionSchema,
+  listMissionsQuerySchema,
+  missionDetailSchema,
+  missionResponseSchema,
+  missionStatusSchema,
+} from "./mission.js";
 
 // Nomes e assinaturas adotados (a etapa não os fixa):
 // - `createMissionSchema`: schema de criação de missão. Campo `title`
@@ -184,5 +190,93 @@ describe("missionStatusSchema", () => {
     const result = missionStatusSchema.safeParse("pausada");
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("missionResponseSchema", () => {
+  function validMissionResponse(): Record<string, unknown> {
+    return {
+      id: "01971f6e-0000-7000-8000-000000000001",
+      title: "Resgate no centro",
+      status: "scheduled",
+      starts_at: "2024-05-01T10:00:00.000Z",
+      ends_at: "2024-05-01T12:00:00.000Z",
+      created_at: "2024-05-01T09:00:00.000Z",
+      updated_at: "2024-05-01T09:00:00.000Z",
+    };
+  }
+
+  it("aceita uma resposta de missão válida, igual à devolvida pela API", () => {
+    const result = missionResponseSchema.safeParse(validMissionResponse());
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejeita um status fora do conjunto conhecido", () => {
+    const result = missionResponseSchema.safeParse({
+      ...validMissionResponse(),
+      status: "pausada",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("missionDetailSchema", () => {
+  it("aceita uma missão com a lista de heróis escalados", () => {
+    const result = missionDetailSchema.safeParse({
+      id: "01971f6e-0000-7000-8000-000000000001",
+      title: "Resgate no centro",
+      status: "in_progress",
+      starts_at: "2024-05-01T10:00:00.000Z",
+      ends_at: "2024-05-01T12:00:00.000Z",
+      created_at: "2024-05-01T09:00:00.000Z",
+      updated_at: "2024-05-01T09:00:00.000Z",
+      heroes: [
+        {
+          id: "01971f6e-0000-7000-8000-000000000000",
+          name: "Clark Kent",
+          nickname: "Super-Homem",
+          universe: "DC",
+          main_power: "Voo",
+          date_of_birth: "1990-06-18",
+          avatar_url: null,
+          is_active: true,
+          deleted_at: null,
+          version: 1,
+          created_at: "2024-05-01T08:00:00.000Z",
+          updated_at: "2024-05-01T08:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.heroes).toHaveLength(1);
+    }
+  });
+
+  it("aceita uma missão sem nenhum herói escalado", () => {
+    const result = missionDetailSchema.safeParse({
+      id: "01971f6e-0000-7000-8000-000000000001",
+      title: "Resgate no centro",
+      status: "scheduled",
+      starts_at: "2024-05-01T10:00:00.000Z",
+      ends_at: "2024-05-01T12:00:00.000Z",
+      created_at: "2024-05-01T09:00:00.000Z",
+      updated_at: "2024-05-01T09:00:00.000Z",
+      heroes: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("listMissionsQuerySchema", () => {
+  it("aceita cursor opcional", () => {
+    expect(listMissionsQuerySchema.safeParse({}).success).toBe(true);
+    expect(listMissionsQuerySchema.safeParse({ cursor: "abc" }).success).toBe(
+      true,
+    );
   });
 });
