@@ -87,10 +87,9 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginx:stable-alpine
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/html:/usr/share/nginx/html:ro
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     ports:
       - "80:80"
     depends_on:
