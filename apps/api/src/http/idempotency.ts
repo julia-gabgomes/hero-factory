@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import type { ErrorCode } from "@hero-factory/shared";
 import type { Database } from "../db/client.js";
 import { idempotencyKeys } from "../db/schema/idempotency_keys.js";
+import { AppError } from "./errors.js";
 
 const ER_DUP_ENTRY = "ER_DUP_ENTRY";
 
@@ -23,13 +23,11 @@ export interface IdempotencyKey {
   requestHash: string;
 }
 
-export class IdempotencyKeyMismatchError extends Error {
-  readonly code = "IDEMPOTENCY_KEY_MISMATCH" satisfies ErrorCode;
-
+export class IdempotencyKeyMismatchError extends AppError {
   constructor(
     message = "A mesma chave de idempotência já foi usada com um corpo diferente.",
   ) {
-    super(message);
+    super("IDEMPOTENCY_KEY_MISMATCH", message);
     this.name = "IdempotencyKeyMismatchError";
   }
 }
