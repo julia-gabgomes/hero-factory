@@ -1,7 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createHeroSchema, updateHeroSchema } from "@hero-factory/shared";
+import {
+  createHeroSchema,
+  missionStatusSchema,
+  updateHeroSchema,
+} from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
 import {
   activateHero,
@@ -10,6 +14,7 @@ import {
   deleteHero,
   getHeroById,
   getHeroHistoryPage,
+  getHeroMissionsPage,
   listHeroesPage,
   updateHero,
 } from "./service.js";
@@ -24,6 +29,10 @@ const heroHistoryQuerySchema = z.object({
   field: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
+  cursor: z.string().optional(),
+});
+const heroMissionsQuerySchema = z.object({
+  status: missionStatusSchema.optional(),
   cursor: z.string().optional(),
 });
 
@@ -126,6 +135,24 @@ export function heroRoutes(app: FastifyInstance): void {
         field: request.query.field,
         from: request.query.from,
         to: request.query.to,
+        cursor: request.query.cursor,
+      });
+
+      reply.code(200).send(page);
+    },
+  );
+
+  typedApp.get(
+    "/:id/missions",
+    {
+      schema: {
+        params: heroParamsSchema,
+        querystring: heroMissionsQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const page = await getHeroMissionsPage(app.db, request.params.id, {
+        status: request.query.status,
         cursor: request.query.cursor,
       });
 

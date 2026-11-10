@@ -1,9 +1,18 @@
 import { createHash } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
-import type { CreateHeroInput, UpdateHeroInput } from "@hero-factory/shared";
+import type {
+  CreateHeroInput,
+  MissionStatus,
+  UpdateHeroInput,
+} from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
 import { badRequest, notFound, versionConflict } from "../../http/errors.js";
 import { decodeCursor, encodeCursor } from "../../http/cursor.js";
+import {
+  listMissionsForHero,
+  LIST_PAGE_SIZE as MISSION_LIST_PAGE_SIZE,
+  type MissionResponse,
+} from "../missions/repository.js";
 import {
   withIdempotency,
   type IdempotencyTransaction,
@@ -332,4 +341,47 @@ export async function getHeroHistoryPage(
     next_cursor,
     prev_cursor: null,
   };
+}
+
+export interface GetHeroMissionsParams {
+  status?: MissionStatus;
+  cursor?: string;
+}
+
+export interface HeroMissionsPage {
+  data: MissionResponse[];
+  next_cursor: string | null;
+  prev_cursor: string | null;
+}
+
+export async function getHeroMissionsPage(
+  db: Database,
+  heroId: string,
+  params: GetHeroMissionsParams = {},
+): Promise<HeroMissionsPage> {
+  const { status, cursor } = params;
+
+  const decodedCursor = cursor !== undefined ? decodeCursor(cursor) : null;
+
+  if (cursor !== undefined && decodedCursor === null) {
+    throw badRequest("O cursor de paginação é inválido.");
+  }
+
+  const rows = await listMissionsForHero(db, {
+    heroId,
+    status,
+    cursor: decodedCursor ?? undefined,
+    limit: MISSION_LIST_PAGE_SIZE + 1,
+  });
+
+  const hasNextPage = rows.length > MISSION_LIST_PAGE_SIZE;
+  const data = hasNextPage ? rows.slice(0, MISSION_LIST_PAGE_SIZE) : rows;
+  const lastMission = data.at(-1);
+
+  const next_cursor =
+    hasNextPage && lastMission !== undefined
+      ? encodeCursor({ created_at: lastMission.created_at, id: lastMission.id })
+      : null;
+
+  return { data, next_cursor, prev_cursor: null };
 }
