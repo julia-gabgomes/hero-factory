@@ -4,7 +4,7 @@ import type { CreateHeroInput } from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
 import { notFound } from "../../http/errors.js";
 import { withIdempotency } from "../../http/idempotency.js";
-import { findHeroById, insertHero, type HeroResponse } from "./repository.js";
+import { findHeroById, insertHero, listHeroes, type HeroResponse } from "./repository.js";
 
 export interface CreateHeroParams {
   body: CreateHeroInput;
@@ -56,6 +56,18 @@ export async function createHero(
   );
 
   return { status: result.status, body: result.body, replayed: result.replayed };
+}
+
+export interface HeroPage {
+  data: HeroResponse[];
+  next_cursor: string | null;
+  prev_cursor: string | null;
+}
+
+export async function listHeroesPage(db: Database): Promise<HeroPage> {
+  const data = await listHeroes(db);
+
+  return { data, next_cursor: null, prev_cursor: null };
 }
 
 export async function getHeroById(db: Database, id: string): Promise<HeroResponse> {

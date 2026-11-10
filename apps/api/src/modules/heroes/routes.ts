@@ -3,7 +3,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createHeroSchema } from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
-import { createHero, getHeroById } from "./service.js";
+import { createHero, getHeroById, listHeroesPage } from "./service.js";
 
 const heroParamsSchema = z.object({ id: z.string() });
 
@@ -31,6 +31,12 @@ export function heroRoutes(app: FastifyInstance): void {
       reply.code(result.status).send(result.body);
     },
   );
+
+  typedApp.get("/", async (_request, reply) => {
+    const page = await listHeroesPage(app.db);
+
+    reply.code(200).send(page);
+  });
 
   typedApp.get(
     "/:id",
