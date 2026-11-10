@@ -3,9 +3,16 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createHeroSchema, updateHeroSchema } from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
-import { createHero, getHeroById, listHeroesPage, updateHero } from "./service.js";
+import {
+  createHero,
+  deleteHero,
+  getHeroById,
+  listHeroesPage,
+  updateHero,
+} from "./service.js";
 
 const heroParamsSchema = z.object({ id: z.string() });
+const deleteHeroBodySchema = z.object({ version: z.number().int() });
 
 export function heroRoutes(app: FastifyInstance): void {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
@@ -15,7 +22,10 @@ export function heroRoutes(app: FastifyInstance): void {
     { schema: { body: createHeroSchema } },
     async (request, reply) => {
       const idempotencyKeyHeader = request.headers["idempotency-key"];
-      if (typeof idempotencyKeyHeader !== "string" || idempotencyKeyHeader.trim() === "") {
+      if (
+        typeof idempotencyKeyHeader !== "string" ||
+        idempotencyKeyHeader.trim() === ""
+      ) {
         throw badRequest("O cabeçalho Idempotency-Key é obrigatório.");
       }
 
@@ -53,6 +63,20 @@ export function heroRoutes(app: FastifyInstance): void {
     { schema: { params: heroParamsSchema, body: updateHeroSchema } },
     async (request, reply) => {
       const hero = await updateHero(app.db, request.params.id, request.body);
+
+      reply.code(200).send(hero);
+    },
+  );
+
+  typedApp.delete(
+    "/:id",
+    { schema: { params: heroParamsSchema, body: deleteHeroBodySchema } },
+    async (request, reply) => {
+      const hero = await deleteHero(
+        app.db,
+        request.params.id,
+        request.body.version,
+      );
 
       reply.code(200).send(hero);
     },

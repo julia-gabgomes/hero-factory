@@ -64,8 +64,15 @@ function mapRowToHeroResponse(row: HeroRow): HeroResponse {
   };
 }
 
-export async function findHeroById(db: Database, id: string): Promise<HeroResponse | null> {
-  const [row] = await db.select().from(heroes).where(eq(heroes.id, id)).limit(1);
+export async function findHeroById(
+  db: Database,
+  id: string,
+): Promise<HeroResponse | null> {
+  const [row] = await db
+    .select()
+    .from(heroes)
+    .where(eq(heroes.id, id))
+    .limit(1);
 
   if (!row) {
     return null;
@@ -109,7 +116,37 @@ export async function updateHeroWithOptimisticLock(
       version: sql`${heroes.version} + 1`,
       updated_at: new Date(),
     })
-    .where(and(eq(heroes.id, id), eq(heroes.version, version), isNull(heroes.deleted_at)));
+    .where(
+      and(
+        eq(heroes.id, id),
+        eq(heroes.version, version),
+        isNull(heroes.deleted_at),
+      ),
+    );
+
+  return result[0].affectedRows;
+}
+
+export async function deleteHeroWithOptimisticLock(
+  db: Database,
+  params: { id: string; version: number },
+): Promise<number> {
+  const { id, version } = params;
+
+  const result = await db
+    .update(heroes)
+    .set({
+      deleted_at: new Date(),
+      version: sql`${heroes.version} + 1`,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(heroes.id, id),
+        eq(heroes.version, version),
+        isNull(heroes.deleted_at),
+      ),
+    );
 
   return result[0].affectedRows;
 }

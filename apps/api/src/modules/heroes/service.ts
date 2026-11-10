@@ -5,6 +5,7 @@ import type { Database } from "../../db/client.js";
 import { notFound, versionConflict } from "../../http/errors.js";
 import { withIdempotency } from "../../http/idempotency.js";
 import {
+  deleteHeroWithOptimisticLock,
   findHeroById,
   insertHero,
   listHeroes,
@@ -29,7 +30,9 @@ function hashRequestBody(body: CreateHeroInput): string {
     .sort()
     .map((key) => [key, body[key as keyof CreateHeroInput]] as const);
 
-  return createHash("sha256").update(JSON.stringify(sortedEntries)).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(sortedEntries))
+    .digest("hex");
 }
 
 export async function createHero(
@@ -62,7 +65,11 @@ export async function createHero(
     },
   );
 
-  return { status: result.status, body: result.body, replayed: result.replayed };
+  return {
+    status: result.status,
+    body: result.body,
+    replayed: result.replayed,
+  };
 }
 
 export interface HeroPage {
@@ -77,7 +84,10 @@ export async function listHeroesPage(db: Database): Promise<HeroPage> {
   return { data, next_cursor: null, prev_cursor: null };
 }
 
-export async function getHeroById(db: Database, id: string): Promise<HeroResponse> {
+export async function getHeroById(
+  db: Database,
+  id: string,
+): Promise<HeroResponse> {
   const hero = await findHeroById(db, id);
 
   if (!hero || hero.deleted_at !== null) {
@@ -94,7 +104,8 @@ function extractUpdateFields(body: UpdateHeroInput): HeroUpdateFields {
   if (body.nickname !== undefined) fields.nickname = body.nickname;
   if (body.universe !== undefined) fields.universe = body.universe;
   if (body.main_power !== undefined) fields.main_power = body.main_power;
-  if (body.date_of_birth !== undefined) fields.date_of_birth = body.date_of_birth;
+  if (body.date_of_birth !== undefined)
+    fields.date_of_birth = body.date_of_birth;
   if (body.avatar_url !== undefined) fields.avatar_url = body.avatar_url;
 
   return fields;
@@ -131,4 +142,33 @@ export async function updateHero(
   }
 
   return updated;
+}
+
+export async function deleteHero(
+  db: Database,
+  id: string,
+  version: number,
+): Promise<HeroResponse> {
+  const affectedRows = await deleteHeroWithOptimisticLock(db, { id, version });
+
+  if (affectedRows === 0) {
+    const current = await findHeroById(db, id);
+
+    if (!current || current.deleted_at !== null) {
+      throw notFound("Herói não encontrado.");
+    }
+
+    throw versionConflict(
+      "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+      current,
+    );
+  }
+
+  const deleted = await findHeroById(db, id);
+
+  if (!deleted) {
+    throw notFound("Herói não encontrado.");
+  }
+
+  return deleted;
 }
