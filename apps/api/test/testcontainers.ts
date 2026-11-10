@@ -13,6 +13,7 @@ const MIGRATIONS_FOLDER = fileURLToPath(
 export interface TestDatabase {
   db: DbClient["db"];
   stop: () => Promise<void>;
+  connectionUri: string;
 }
 
 export async function startTestDatabase(): Promise<TestDatabase> {
@@ -22,7 +23,8 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     .withUserPassword("hero_factory")
     .start();
 
-  const { db, pool } = createDbClient(container.getConnectionUri());
+  const connectionUri = container.getConnectionUri();
+  const { db, pool } = createDbClient(connectionUri);
 
   await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
 
@@ -31,5 +33,5 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     await container.stop();
   };
 
-  return { db, stop };
+  return { db, stop, connectionUri };
 }
