@@ -17,8 +17,13 @@ e [`docs/decisions.md`](docs/decisions.md).
 - **Infraestrutura:** seed de 100k heróis, `Server-Timing`, limpeza de
   idempotência, Docker Compose com `api1`/`api2`/`migrate` reais, benchmark
   k6 (ver [`docs/performance.md`](docs/performance.md)).
-- **Pendente:** tela (`apps/web`), upload de avatar e importação de CSV
-  (ambos opcionais), suíte E2E.
+- **Tela (`apps/web`):** lista, busca e paginação de heróis; criar, editar
+  (com merge de três vias em conflito de edição simultânea), inativar/ativar
+  e excluir, com confirmação; detalhes com abas Dados · Alterações ·
+  Missões; missões (lista, criar, máquina de estados, escalar/remover
+  herói). Servida pelo Nginx a partir do build de produção do Vite.
+- **Pendente:** upload de avatar e importação de CSV (ambos opcionais, a
+  API ainda não os expõe), suíte E2E (Playwright).
 
 ## Pré-requisitos
 
@@ -57,8 +62,14 @@ pnpm --filter @hero-factory/api run db:migrate
 pnpm --filter @hero-factory/api exec tsx watch src/server.ts
 ```
 
-A API local lê `DATABASE_URL` do `.env` da raiz (aponta para o MySQL do
-compose publicado em `MYSQL_PORT`).
+Em outro terminal, a tela com hot reload e proxy de `/api` para a API local:
+
+```bash
+pnpm --filter @hero-factory/web dev
+```
+
+Abra `http://localhost:5173`. A API local lê `DATABASE_URL` do `.env` da
+raiz (aponta para o MySQL do compose publicado em `MYSQL_PORT`).
 
 ## Comandos
 
@@ -72,7 +83,8 @@ compose publicado em `MYSQL_PORT`).
 | Checagem de tipos | `pnpm typecheck` |
 | Formatar | `pnpm format` |
 | Testes (unitários e de integração, exige Docker) | `pnpm test` |
-| Testes de um pacote | `pnpm --filter @hero-factory/api test` / `pnpm --filter @hero-factory/shared test` |
+| Testes de um pacote | `pnpm --filter @hero-factory/api test` / `pnpm --filter @hero-factory/web test` / `pnpm --filter @hero-factory/shared test` |
+| Dev da tela (hot reload, proxy de `/api`) | `pnpm --filter @hero-factory/web dev` |
 | Gerar migration a partir do schema | `pnpm db:generate` |
 | Aplicar migrations | `pnpm db:migrate` |
 | Seed (idempotente) | `pnpm db:seed` |
@@ -90,14 +102,14 @@ qualquer comando acima.
 hero-factory/
 ├─ apps/
 │  ├─ api/          Fastify: modules/{heroes,missions}, db/, http/, app.ts, server.ts
-│  └─ web/          React (ainda não implementado)
+│  └─ web/          React: features/{heroes,missions}, components/ui, lib/, routes/
 ├─ packages/
 │  └─ shared/src/   schemas Zod · tipos inferidos · limites de campos · códigos de erro
 ├─ bench/           script k6 (heroes.js)
-├─ nginx/           nginx.conf
+├─ nginx/           nginx.conf · Dockerfile (builda e serve a SPA)
 ├─ docs/            performance.md · decisions.md
 ├─ docker-compose.yml
-├─ Dockerfile
+├─ Dockerfile        imagem da API (migrate/api1/api2)
 ├─ .env.example
 └─ CLAUDE.md
 ```
