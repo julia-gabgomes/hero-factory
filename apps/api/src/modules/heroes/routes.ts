@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createHeroSchema } from "@hero-factory/shared";
+import { createHeroSchema, updateHeroSchema } from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
-import { createHero, getHeroById, listHeroesPage } from "./service.js";
+import { createHero, getHeroById, listHeroesPage, updateHero } from "./service.js";
 
 const heroParamsSchema = z.object({ id: z.string() });
 
@@ -43,6 +43,16 @@ export function heroRoutes(app: FastifyInstance): void {
     { schema: { params: heroParamsSchema } },
     async (request, reply) => {
       const hero = await getHeroById(app.db, request.params.id);
+
+      reply.code(200).send(hero);
+    },
+  );
+
+  typedApp.patch(
+    "/:id",
+    { schema: { params: heroParamsSchema, body: updateHeroSchema } },
+    async (request, reply) => {
+      const hero = await updateHero(app.db, request.params.id, request.body);
 
       reply.code(200).send(hero);
     },

@@ -1,10 +1,17 @@
 import { createHash } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
-import type { CreateHeroInput } from "@hero-factory/shared";
+import type { CreateHeroInput, UpdateHeroInput } from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
-import { notFound } from "../../http/errors.js";
+import { notFound, versionConflict } from "../../http/errors.js";
 import { withIdempotency } from "../../http/idempotency.js";
-import { findHeroById, insertHero, listHeroes, type HeroResponse } from "./repository.js";
+import {
+  findHeroById,
+  insertHero,
+  listHeroes,
+  updateHeroWithOptimisticLock,
+  type HeroResponse,
+  type HeroUpdateFields,
+} from "./repository.js";
 
 export interface CreateHeroParams {
   body: CreateHeroInput;
@@ -78,4 +85,50 @@ export async function getHeroById(db: Database, id: string): Promise<HeroRespons
   }
 
   return hero;
+}
+
+function extractUpdateFields(body: UpdateHeroInput): HeroUpdateFields {
+  const fields: HeroUpdateFields = {};
+
+  if (body.name !== undefined) fields.name = body.name;
+  if (body.nickname !== undefined) fields.nickname = body.nickname;
+  if (body.universe !== undefined) fields.universe = body.universe;
+  if (body.main_power !== undefined) fields.main_power = body.main_power;
+  if (body.date_of_birth !== undefined) fields.date_of_birth = body.date_of_birth;
+  if (body.avatar_url !== undefined) fields.avatar_url = body.avatar_url;
+
+  return fields;
+}
+
+export async function updateHero(
+  db: Database,
+  id: string,
+  body: UpdateHeroInput,
+): Promise<HeroResponse> {
+  const affectedRows = await updateHeroWithOptimisticLock(db, {
+    id,
+    version: body.version,
+    fields: extractUpdateFields(body),
+  });
+
+  if (affectedRows === 0) {
+    const current = await findHeroById(db, id);
+
+    if (!current || current.deleted_at !== null) {
+      throw notFound("Herói não encontrado.");
+    }
+
+    throw versionConflict(
+      "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+      current,
+    );
+  }
+
+  const updated = await findHeroById(db, id);
+
+  if (!updated) {
+    throw notFound("Herói não encontrado.");
+  }
+
+  return updated;
 }
