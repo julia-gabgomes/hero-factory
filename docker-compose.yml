@@ -32,34 +32,53 @@ services:
       retries: 20
       start_period: 30s
 
-  # Placeholder: sem lógica de migration ainda (entra quando apps/api tiver
-  # schema e CLI de migrate/seed reais). Depende só do mysql estar saudável.
+  # Roda as migrations e, se SEED_ON_START=true, o seed de 100k heróis
+  # (idempotente), depois sai. api1/api2 só sobem quando este serviço
+  # termina com sucesso.
   migrate:
-    image: node:${NODE_VERSION:-24}
-    command: ["tail", "-f", "/dev/null"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-hero_factory}:${MYSQL_PASSWORD:-hero_factory}@mysql:3306/${MYSQL_DATABASE:-hero_factory}
+      SEED_ON_START: ${SEED_ON_START:-false}
+    command:
+      - sh
+      - -c
+      - |
+        pnpm run db:migrate &&
+        if [ "$$SEED_ON_START" = "true" ]; then pnpm run db:seed; fi
     depends_on:
       mysql:
         condition: service_healthy
 
-  # Placeholder: ainda não depende de "migrate terminar" (migrate não tem
-  # lógica real nesta etapa, então não há nada para esperar além do mysql
-  # estar saudável). Quando migrate passar a rodar migrations/seed de
-  # verdade, api1/api2/worker devem passar a depender dele terminar com
-  # sucesso (ex. `condition: service_completed_successfully`).
   api1:
-    image: node:${NODE_VERSION:-24}
-    command: ["tail", "-f", "/dev/null"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["pnpm", "exec", "tsx", "src/server.ts"]
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-hero_factory}:${MYSQL_PASSWORD:-hero_factory}@mysql:3306/${MYSQL_DATABASE:-hero_factory}
+      PORT: "3000"
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   api2:
-    image: node:${NODE_VERSION:-24}
-    command: ["tail", "-f", "/dev/null"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["pnpm", "exec", "tsx", "src/server.ts"]
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-hero_factory}:${MYSQL_PASSWORD:-hero_factory}@mysql:3306/${MYSQL_DATABASE:-hero_factory}
+      PORT: "3000"
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
+  # Placeholder: só ganha lógica real (processar import_jobs do CSV) quando
+  # a importação (opcional 2) for implementada. Até lá, não há nada que ele
+  # precise fazer.
   worker:
     image: node:${NODE_VERSION:-24}
     command: ["tail", "-f", "/dev/null"]
@@ -78,6 +97,18 @@ services:
       api1:
         condition: service_started
       api2:
+        condition: service_started
+
+  k6:
+    image: grafana/k6
+    profiles: ["bench"]
+    environment:
+      BASE_URL: http://nginx
+    volumes:
+      - ./bench:/scripts:ro
+    command: ["run", "/scripts/heroes.js"]
+    depends_on:
+      nginx:
         condition: service_started
 
 volumes:
