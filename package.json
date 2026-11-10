@@ -10,7 +10,9 @@
   "scripts": {
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @hero-factory/api run db:generate",
+    "db:migrate": "pnpm --filter @hero-factory/api run db:migrate"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
