@@ -1,9 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import { idempotencyKeys } from "../db/schema/idempotency_keys.js";
+import { isDuplicateEntryError } from "../db/mysql-errors.js";
 import { AppError } from "./errors.js";
-
-const ER_DUP_ENTRY = "ER_DUP_ENTRY";
 
 type TransactionCallback = Parameters<Database["transaction"]>[0];
 export type IdempotencyTransaction = Parameters<TransactionCallback>[0];
@@ -30,25 +29,6 @@ export class IdempotencyKeyMismatchError extends AppError {
     super("IDEMPOTENCY_KEY_MISMATCH", message);
     this.name = "IdempotencyKeyMismatchError";
   }
-}
-
-function hasDuplicateEntryCode(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === ER_DUP_ENTRY
-  );
-}
-
-function isDuplicateEntryError(error: unknown): boolean {
-  if (hasDuplicateEntryCode(error)) {
-    return true;
-  }
-  if (error instanceof Error && "cause" in error) {
-    return hasDuplicateEntryCode((error as { cause?: unknown }).cause);
-  }
-  return false;
 }
 
 async function readExistingResponse<T>(
@@ -114,7 +94,9 @@ export async function withIdempotency<T>(
         response_status: result.status,
         response_body: JSON.stringify(result.body),
       })
-      .where(and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)));
+      .where(
+        and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)),
+      );
 
     return { ...result, replayed: false };
   });

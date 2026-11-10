@@ -1,7 +1,9 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { heroes } from "../../db/schema/heroes.js";
 import type { Database } from "../../db/client.js";
+import { isDuplicateEntryError } from "../../db/mysql-errors.js";
 import type { IdempotencyTransaction } from "../../http/idempotency.js";
+import { duplicateHero } from "../../http/errors.js";
 import type { HeroListCursor } from "../../http/cursor.js";
 
 export interface NewHeroRow {
@@ -145,22 +147,31 @@ export async function updateHeroWithOptimisticLock(
 ): Promise<number> {
   const { id, version, fields } = params;
 
-  const result = await db
-    .update(heroes)
-    .set({
-      ...fields,
-      version: sql`${heroes.version} + 1`,
-      updated_at: new Date(),
-    })
-    .where(
-      and(
-        eq(heroes.id, id),
-        eq(heroes.version, version),
-        isNull(heroes.deleted_at),
-      ),
-    );
+  try {
+    const result = await db
+      .update(heroes)
+      .set({
+        ...fields,
+        version: sql`${heroes.version} + 1`,
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(heroes.id, id),
+          eq(heroes.version, version),
+          isNull(heroes.deleted_at),
+        ),
+      );
 
-  return result[0].affectedRows;
+    return result[0].affectedRows;
+  } catch (error) {
+    if (isDuplicateEntryError(error)) {
+      throw duplicateHero(
+        "Já existe um herói com o mesmo nome, nome de guerra e data de nascimento.",
+      );
+    }
+    throw error;
+  }
 }
 
 export async function deleteHeroWithOptimisticLock(
@@ -215,7 +226,16 @@ export async function insertHero(
   tx: IdempotencyTransaction,
   row: NewHeroRow,
 ): Promise<HeroResponse> {
-  await tx.insert(heroes).values(row);
+  try {
+    await tx.insert(heroes).values(row);
+  } catch (error) {
+    if (isDuplicateEntryError(error)) {
+      throw duplicateHero(
+        "Já existe um herói com o mesmo nome, nome de guerra e data de nascimento.",
+      );
+    }
+    throw error;
+  }
 
   return mapRowToHeroResponse({ ...row, deleted_at: null });
 }
