@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { buildApp } from "./app.js";
 import { createDbClient } from "./db/client.js";
+import { startIdempotencyCleanup } from "./http/idempotency-cleanup.js";
 
 config({ path: "../../.env" });
 
@@ -12,6 +13,8 @@ if (!process.env.DATABASE_URL) {
 
 const { db } = createDbClient(process.env.DATABASE_URL);
 const app = buildApp({ db });
+
+startIdempotencyCleanup(db);
 
 const port = Number(process.env.PORT ?? 3000);
 
