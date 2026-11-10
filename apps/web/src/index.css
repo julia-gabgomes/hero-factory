@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f8f4f0;
+  --color-primary: #0a2fa8;
+  --color-primary-soft: #e4eaf8;
+  --color-danger: #d92d3a;
+  --color-border: #d9d9d9;
+  --radius-card: 1.5rem;
+  --radius-modal: 1.75rem;
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+}
+
+body {
+  background-color: var(--color-background);
+  font-family: var(--font-sans);
+}
