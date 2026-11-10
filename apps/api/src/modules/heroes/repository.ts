@@ -151,6 +151,30 @@ export async function deleteHeroWithOptimisticLock(
   return result[0].affectedRows;
 }
 
+export async function setHeroActiveStateWithOptimisticLock(
+  db: Database,
+  params: { id: string; version: number; isActive: boolean },
+): Promise<number> {
+  const { id, version, isActive } = params;
+
+  const result = await db
+    .update(heroes)
+    .set({
+      is_active: isActive,
+      version: sql`${heroes.version} + 1`,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(heroes.id, id),
+        eq(heroes.version, version),
+        isNull(heroes.deleted_at),
+      ),
+    );
+
+  return result[0].affectedRows;
+}
+
 export async function insertHero(
   tx: IdempotencyTransaction,
   row: NewHeroRow,

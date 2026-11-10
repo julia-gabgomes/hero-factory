@@ -9,6 +9,7 @@ import {
   findHeroById,
   insertHero,
   listHeroes,
+  setHeroActiveStateWithOptimisticLock,
   updateHeroWithOptimisticLock,
   type HeroResponse,
   type HeroUpdateFields,
@@ -111,17 +112,11 @@ function extractUpdateFields(body: UpdateHeroInput): HeroUpdateFields {
   return fields;
 }
 
-export async function updateHero(
+async function resolveOptimisticLockOutcome(
   db: Database,
   id: string,
-  body: UpdateHeroInput,
+  affectedRows: number,
 ): Promise<HeroResponse> {
-  const affectedRows = await updateHeroWithOptimisticLock(db, {
-    id,
-    version: body.version,
-    fields: extractUpdateFields(body),
-  });
-
   if (affectedRows === 0) {
     const current = await findHeroById(db, id);
 
@@ -144,6 +139,20 @@ export async function updateHero(
   return updated;
 }
 
+export async function updateHero(
+  db: Database,
+  id: string,
+  body: UpdateHeroInput,
+): Promise<HeroResponse> {
+  const affectedRows = await updateHeroWithOptimisticLock(db, {
+    id,
+    version: body.version,
+    fields: extractUpdateFields(body),
+  });
+
+  return resolveOptimisticLockOutcome(db, id, affectedRows);
+}
+
 export async function deleteHero(
   db: Database,
   id: string,
@@ -151,24 +160,33 @@ export async function deleteHero(
 ): Promise<HeroResponse> {
   const affectedRows = await deleteHeroWithOptimisticLock(db, { id, version });
 
-  if (affectedRows === 0) {
-    const current = await findHeroById(db, id);
+  return resolveOptimisticLockOutcome(db, id, affectedRows);
+}
 
-    if (!current || current.deleted_at !== null) {
-      throw notFound("Herói não encontrado.");
-    }
+export async function activateHero(
+  db: Database,
+  id: string,
+  version: number,
+): Promise<HeroResponse> {
+  const affectedRows = await setHeroActiveStateWithOptimisticLock(db, {
+    id,
+    version,
+    isActive: true,
+  });
 
-    throw versionConflict(
-      "O herói foi alterado por outra pessoa depois que você abriu a edição.",
-      current,
-    );
-  }
+  return resolveOptimisticLockOutcome(db, id, affectedRows);
+}
 
-  const deleted = await findHeroById(db, id);
+export async function deactivateHero(
+  db: Database,
+  id: string,
+  version: number,
+): Promise<HeroResponse> {
+  const affectedRows = await setHeroActiveStateWithOptimisticLock(db, {
+    id,
+    version,
+    isActive: false,
+  });
 
-  if (!deleted) {
-    throw notFound("Herói não encontrado.");
-  }
-
-  return deleted;
+  return resolveOptimisticLockOutcome(db, id, affectedRows);
 }

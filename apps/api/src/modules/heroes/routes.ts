@@ -4,7 +4,9 @@ import { z } from "zod";
 import { createHeroSchema, updateHeroSchema } from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
 import {
+  activateHero,
   createHero,
+  deactivateHero,
   deleteHero,
   getHeroById,
   listHeroesPage,
@@ -12,7 +14,7 @@ import {
 } from "./service.js";
 
 const heroParamsSchema = z.object({ id: z.string() });
-const deleteHeroBodySchema = z.object({ version: z.number().int() });
+const versionOnlyBodySchema = z.object({ version: z.number().int() });
 
 export function heroRoutes(app: FastifyInstance): void {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
@@ -70,9 +72,37 @@ export function heroRoutes(app: FastifyInstance): void {
 
   typedApp.delete(
     "/:id",
-    { schema: { params: heroParamsSchema, body: deleteHeroBodySchema } },
+    { schema: { params: heroParamsSchema, body: versionOnlyBodySchema } },
     async (request, reply) => {
       const hero = await deleteHero(
+        app.db,
+        request.params.id,
+        request.body.version,
+      );
+
+      reply.code(200).send(hero);
+    },
+  );
+
+  typedApp.post(
+    "/:id/activate",
+    { schema: { params: heroParamsSchema, body: versionOnlyBodySchema } },
+    async (request, reply) => {
+      const hero = await activateHero(
+        app.db,
+        request.params.id,
+        request.body.version,
+      );
+
+      reply.code(200).send(hero);
+    },
+  );
+
+  typedApp.post(
+    "/:id/deactivate",
+    { schema: { params: heroParamsSchema, body: versionOnlyBodySchema } },
+    async (request, reply) => {
+      const hero = await deactivateHero(
         app.db,
         request.params.id,
         request.body.version,
