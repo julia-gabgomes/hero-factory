@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { heroes } from "../../db/schema/heroes.js";
+import type { Database } from "../../db/client.js";
 import type { IdempotencyTransaction } from "../../http/idempotency.js";
 
 export interface NewHeroRow {
@@ -28,6 +30,29 @@ export interface HeroResponse {
   version: number;
   created_at: string;
   updated_at: string;
+}
+
+export async function findHeroById(db: Database, id: string): Promise<HeroResponse | null> {
+  const [row] = await db.select().from(heroes).where(eq(heroes.id, id)).limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    nickname: row.nickname,
+    universe: row.universe,
+    main_power: row.main_power,
+    date_of_birth: row.date_of_birth,
+    avatar_url: row.avatar_url,
+    is_active: row.is_active,
+    deleted_at: row.deleted_at === null ? null : row.deleted_at.toISOString(),
+    version: row.version,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  };
 }
 
 export async function insertHero(
