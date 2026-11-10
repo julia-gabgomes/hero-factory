@@ -11,8 +11,11 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "test": "pnpm -r run test",
     "db:generate": "pnpm --filter @hero-factory/api run db:generate",
-    "db:migrate": "pnpm --filter @hero-factory/api run db:migrate"
+    "db:migrate": "pnpm --filter @hero-factory/api run db:migrate",
+    "db:seed": "pnpm --filter @hero-factory/api run db:seed",
+    "db:reset": "pnpm --filter @hero-factory/api run db:reset"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
