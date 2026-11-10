@@ -1,10 +1,15 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
 import { heroes } from "../../db/schema/heroes.js";
+import { heroChanges } from "../../db/schema/hero_changes.js";
 import type { Database } from "../../db/client.js";
 import { isDuplicateEntryError } from "../../db/mysql-errors.js";
 import type { IdempotencyTransaction } from "../../http/idempotency.js";
 import { duplicateHero } from "../../http/errors.js";
 import type { HeroListCursor } from "../../http/cursor.js";
+import type { HeroChangeInput } from "./history.js";
+
+export type DbExecutor = Database | IdempotencyTransaction;
 
 export interface NewHeroRow {
   id: string;
@@ -50,7 +55,7 @@ interface HeroRow {
   updated_at: Date;
 }
 
-function mapRowToHeroResponse(row: HeroRow): HeroResponse {
+export function mapRowToHeroResponse(row: HeroRow): HeroResponse {
   return {
     id: row.id,
     name: row.name,
@@ -68,13 +73,31 @@ function mapRowToHeroResponse(row: HeroRow): HeroResponse {
 }
 
 export async function findHeroById(
-  db: Database,
+  db: DbExecutor,
   id: string,
 ): Promise<HeroResponse | null> {
   const [row] = await db
     .select()
     .from(heroes)
     .where(eq(heroes.id, id))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return mapRowToHeroResponse(row);
+}
+
+export async function findHeroByIdForUpdate(
+  tx: IdempotencyTransaction,
+  id: string,
+): Promise<HeroResponse | null> {
+  const [row] = await tx
+    .select()
+    .from(heroes)
+    .where(eq(heroes.id, id))
+    .for("update")
     .limit(1);
 
   if (!row) {
@@ -142,7 +165,7 @@ export interface HeroUpdateFields {
 }
 
 export async function updateHeroWithOptimisticLock(
-  db: Database,
+  db: DbExecutor,
   params: { id: string; version: number; fields: HeroUpdateFields },
 ): Promise<number> {
   const { id, version, fields } = params;
@@ -175,7 +198,7 @@ export async function updateHeroWithOptimisticLock(
 }
 
 export async function deleteHeroWithOptimisticLock(
-  db: Database,
+  db: DbExecutor,
   params: { id: string; version: number },
 ): Promise<number> {
   const { id, version } = params;
@@ -199,7 +222,7 @@ export async function deleteHeroWithOptimisticLock(
 }
 
 export async function setHeroActiveStateWithOptimisticLock(
-  db: Database,
+  db: DbExecutor,
   params: { id: string; version: number; isActive: boolean },
 ): Promise<number> {
   const { id, version, isActive } = params;
@@ -238,4 +261,80 @@ export async function insertHero(
   }
 
   return mapRowToHeroResponse({ ...row, deleted_at: null });
+}
+
+export async function insertHeroChanges(
+  tx: IdempotencyTransaction,
+  changes: HeroChangeInput[],
+): Promise<void> {
+  if (changes.length === 0) {
+    return;
+  }
+
+  await tx.insert(heroChanges).values(
+    changes.map((change) => ({
+      id: uuidv7(),
+      ...change,
+    })),
+  );
+}
+
+export interface HeroChangeRow {
+  id: string;
+  hero_id: string;
+  event: string;
+  field: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: Date;
+}
+
+export const HISTORY_PAGE_SIZE = 10;
+
+export interface ListHeroHistoryParams {
+  heroId: string;
+  field?: string;
+  from?: Date;
+  to?: Date;
+  cursor?: HeroListCursor;
+  limit?: number;
+}
+
+export async function listHeroHistory(
+  db: Database,
+  params: ListHeroHistoryParams,
+): Promise<HeroChangeRow[]> {
+  const { heroId, field, from, to, cursor, limit = HISTORY_PAGE_SIZE } = params;
+
+  const conditions = [
+    eq(heroChanges.hero_id, heroId),
+    ne(heroChanges.event, "created"),
+  ];
+
+  if (field !== undefined) {
+    conditions.push(eq(heroChanges.field, field));
+  }
+
+  if (from !== undefined) {
+    conditions.push(gte(heroChanges.created_at, from));
+  }
+
+  if (to !== undefined) {
+    conditions.push(lte(heroChanges.created_at, to));
+  }
+
+  if (cursor !== undefined) {
+    conditions.push(
+      sql`(${heroChanges.created_at}, ${heroChanges.id}) < (${new Date(cursor.created_at)}, ${cursor.id})`,
+    );
+  }
+
+  const rows = await db
+    .select()
+    .from(heroChanges)
+    .where(and(...conditions))
+    .orderBy(desc(heroChanges.created_at), desc(heroChanges.id))
+    .limit(limit);
+
+  return rows;
 }

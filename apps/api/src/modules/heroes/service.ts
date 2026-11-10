@@ -4,13 +4,26 @@ import type { CreateHeroInput, UpdateHeroInput } from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
 import { badRequest, notFound, versionConflict } from "../../http/errors.js";
 import { decodeCursor, encodeCursor } from "../../http/cursor.js";
-import { withIdempotency } from "../../http/idempotency.js";
 import {
+  withIdempotency,
+  type IdempotencyTransaction,
+} from "../../http/idempotency.js";
+import {
+  diffActiveStateChange,
+  diffCreatedHero,
+  diffDeletedHero,
+  diffUpdatedHero,
+} from "./history.js";
+import {
+  HISTORY_PAGE_SIZE,
   LIST_PAGE_SIZE,
   deleteHeroWithOptimisticLock,
   findHeroById,
+  findHeroByIdForUpdate,
   insertHero,
+  insertHeroChanges,
   listHeroes,
+  listHeroHistory,
   setHeroActiveStateWithOptimisticLock,
   updateHeroWithOptimisticLock,
   type HeroResponse,
@@ -63,6 +76,8 @@ export async function createHero(
         created_at: now,
         updated_at: now,
       });
+
+      await insertHeroChanges(tx, diffCreatedHero(hero, now));
 
       return { status: 201, body: hero };
     },
@@ -143,31 +158,17 @@ function extractUpdateFields(body: UpdateHeroInput): HeroUpdateFields {
   return fields;
 }
 
-async function resolveOptimisticLockOutcome(
-  db: Database,
+async function lockExistingHeroOrThrow(
+  tx: IdempotencyTransaction,
   id: string,
-  affectedRows: number,
 ): Promise<HeroResponse> {
-  if (affectedRows === 0) {
-    const current = await findHeroById(db, id);
+  const before = await findHeroByIdForUpdate(tx, id);
 
-    if (!current || current.deleted_at !== null) {
-      throw notFound("Herói não encontrado.");
-    }
-
-    throw versionConflict(
-      "O herói foi alterado por outra pessoa depois que você abriu a edição.",
-      current,
-    );
-  }
-
-  const updated = await findHeroById(db, id);
-
-  if (!updated) {
+  if (!before || before.deleted_at !== null) {
     throw notFound("Herói não encontrado.");
   }
 
-  return updated;
+  return before;
 }
 
 export async function updateHero(
@@ -175,13 +176,35 @@ export async function updateHero(
   id: string,
   body: UpdateHeroInput,
 ): Promise<HeroResponse> {
-  const affectedRows = await updateHeroWithOptimisticLock(db, {
-    id,
-    version: body.version,
-    fields: extractUpdateFields(body),
-  });
+  const fields = extractUpdateFields(body);
 
-  return resolveOptimisticLockOutcome(db, id, affectedRows);
+  return db.transaction(async (tx) => {
+    const before = await lockExistingHeroOrThrow(tx, id);
+
+    const affectedRows = await updateHeroWithOptimisticLock(tx, {
+      id,
+      version: body.version,
+      fields,
+    });
+
+    if (affectedRows === 0) {
+      throw versionConflict(
+        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+        before,
+      );
+    }
+
+    const now = new Date();
+    await insertHeroChanges(tx, diffUpdatedHero(before, fields, now));
+
+    const updated = await findHeroById(tx, id);
+
+    if (!updated) {
+      throw notFound("Herói não encontrado.");
+    }
+
+    return updated;
+  });
 }
 
 export async function deleteHero(
@@ -189,9 +212,67 @@ export async function deleteHero(
   id: string,
   version: number,
 ): Promise<HeroResponse> {
-  const affectedRows = await deleteHeroWithOptimisticLock(db, { id, version });
+  return db.transaction(async (tx) => {
+    const before = await lockExistingHeroOrThrow(tx, id);
 
-  return resolveOptimisticLockOutcome(db, id, affectedRows);
+    const affectedRows = await deleteHeroWithOptimisticLock(tx, {
+      id,
+      version,
+    });
+
+    if (affectedRows === 0) {
+      throw versionConflict(
+        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+        before,
+      );
+    }
+
+    const now = new Date();
+    await insertHeroChanges(tx, diffDeletedHero(before, now));
+
+    const updated = await findHeroById(tx, id);
+
+    if (!updated) {
+      throw notFound("Herói não encontrado.");
+    }
+
+    return updated;
+  });
+}
+
+async function setHeroActiveState(
+  db: Database,
+  id: string,
+  version: number,
+  isActive: boolean,
+): Promise<HeroResponse> {
+  return db.transaction(async (tx) => {
+    const before = await lockExistingHeroOrThrow(tx, id);
+
+    const affectedRows = await setHeroActiveStateWithOptimisticLock(tx, {
+      id,
+      version,
+      isActive,
+    });
+
+    if (affectedRows === 0) {
+      throw versionConflict(
+        "O herói foi alterado por outra pessoa depois que você abriu a edição.",
+        before,
+      );
+    }
+
+    const now = new Date();
+    await insertHeroChanges(tx, diffActiveStateChange(before, isActive, now));
+
+    const updated = await findHeroById(tx, id);
+
+    if (!updated) {
+      throw notFound("Herói não encontrado.");
+    }
+
+    return updated;
+  });
 }
 
 export async function activateHero(
@@ -199,13 +280,7 @@ export async function activateHero(
   id: string,
   version: number,
 ): Promise<HeroResponse> {
-  const affectedRows = await setHeroActiveStateWithOptimisticLock(db, {
-    id,
-    version,
-    isActive: true,
-  });
-
-  return resolveOptimisticLockOutcome(db, id, affectedRows);
+  return setHeroActiveState(db, id, version, true);
 }
 
 export async function deactivateHero(
@@ -213,11 +288,73 @@ export async function deactivateHero(
   id: string,
   version: number,
 ): Promise<HeroResponse> {
-  const affectedRows = await setHeroActiveStateWithOptimisticLock(db, {
-    id,
-    version,
-    isActive: false,
+  return setHeroActiveState(db, id, version, false);
+}
+
+export interface GetHeroHistoryParams {
+  field?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+}
+
+export interface HeroHistoryItem {
+  event: string;
+  field: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
+export interface HeroHistoryPage {
+  data: HeroHistoryItem[];
+  next_cursor: string | null;
+  prev_cursor: string | null;
+}
+
+export async function getHeroHistoryPage(
+  db: Database,
+  heroId: string,
+  params: GetHeroHistoryParams = {},
+): Promise<HeroHistoryPage> {
+  const { field, from, to, cursor } = params;
+
+  const decodedCursor = cursor !== undefined ? decodeCursor(cursor) : null;
+
+  if (cursor !== undefined && decodedCursor === null) {
+    throw badRequest("O cursor de paginação é inválido.");
+  }
+
+  const rows = await listHeroHistory(db, {
+    heroId,
+    field,
+    from: from !== undefined ? new Date(from) : undefined,
+    to: to !== undefined ? new Date(to) : undefined,
+    cursor: decodedCursor ?? undefined,
+    limit: HISTORY_PAGE_SIZE + 1,
   });
 
-  return resolveOptimisticLockOutcome(db, id, affectedRows);
+  const hasNextPage = rows.length > HISTORY_PAGE_SIZE;
+  const data = hasNextPage ? rows.slice(0, HISTORY_PAGE_SIZE) : rows;
+  const lastRow = data.at(-1);
+
+  const next_cursor =
+    hasNextPage && lastRow !== undefined
+      ? encodeCursor({
+          created_at: lastRow.created_at.toISOString(),
+          id: lastRow.id,
+        })
+      : null;
+
+  return {
+    data: data.map((row) => ({
+      event: row.event,
+      field: row.field,
+      old_value: row.old_value,
+      new_value: row.new_value,
+      created_at: row.created_at.toISOString(),
+    })),
+    next_cursor,
+    prev_cursor: null,
+  };
 }

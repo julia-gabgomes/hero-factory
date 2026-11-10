@@ -9,6 +9,7 @@ import {
   deactivateHero,
   deleteHero,
   getHeroById,
+  getHeroHistoryPage,
   listHeroesPage,
   updateHero,
 } from "./service.js";
@@ -17,6 +18,12 @@ const heroParamsSchema = z.object({ id: z.string() });
 const versionOnlyBodySchema = z.object({ version: z.number().int() });
 const listHeroesQuerySchema = z.object({
   q: z.string().optional(),
+  cursor: z.string().optional(),
+});
+const heroHistoryQuerySchema = z.object({
+  field: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
   cursor: z.string().optional(),
 });
 
@@ -106,6 +113,23 @@ export function heroRoutes(app: FastifyInstance): void {
       );
 
       reply.code(200).send(hero);
+    },
+  );
+
+  typedApp.get(
+    "/:id/history",
+    {
+      schema: { params: heroParamsSchema, querystring: heroHistoryQuerySchema },
+    },
+    async (request, reply) => {
+      const page = await getHeroHistoryPage(app.db, request.params.id, {
+        field: request.query.field,
+        from: request.query.from,
+        to: request.query.to,
+        cursor: request.query.cursor,
+      });
+
+      reply.code(200).send(page);
     },
   );
 
