@@ -3,6 +3,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
   createHeroSchema,
+  heroHistoryQuerySchema,
   missionStatusSchema,
   updateHeroSchema,
 } from "@hero-factory/shared";
@@ -23,12 +24,6 @@ const heroParamsSchema = z.object({ id: z.string() });
 const versionOnlyBodySchema = z.object({ version: z.number().int() });
 const listHeroesQuerySchema = z.object({
   q: z.string().optional(),
-  cursor: z.string().optional(),
-});
-const heroHistoryQuerySchema = z.object({
-  field: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
   cursor: z.string().optional(),
 });
 const heroMissionsQuerySchema = z.object({

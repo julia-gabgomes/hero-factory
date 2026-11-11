@@ -329,6 +329,133 @@ describe("Histórico de alterações de herói (MySQL real via Testcontainers)",
     expect(body.data.map((item) => item.new_value)).toEqual(["r3", "r2"]);
   });
 
+  // Dado um herói com mais linhas de histórico do que cabem numa página,
+  // quando se chama `GET /heroes/:id/history`, então a primeira página tem
+  // exatamente 5 linhas e `next_cursor` não é nulo; usando esse cursor, a
+  // segunda página traz o restante e `next_cursor` volta a ser nulo.
+  it("pagina o histórico de 5 em 5", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+    await insertHistoryRow({
+      heroId: created.id,
+      event: "updated",
+      field: "main_power",
+      oldValue: "antigo r5",
+      newValue: "r5",
+      createdAt: new Date("2024-01-01T08:00:00.000Z"),
+    });
+    await insertHistoryRow({
+      heroId: created.id,
+      event: "updated",
+      field: "main_power",
+      oldValue: "antigo r6",
+      newValue: "r6",
+      createdAt: new Date("2024-01-01T10:00:00.000Z"),
+    });
+
+    const firstPage = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history`,
+    });
+
+    expect(firstPage.statusCode).toBe(200);
+    const firstBody = firstPage.json<{
+      data: HistoryItem[];
+      next_cursor: string | null;
+    }>();
+
+    expect(firstBody.data).toHaveLength(5);
+    expect(firstBody.data.map((item) => item.new_value)).toEqual([
+      "r6",
+      "r5",
+      "r4",
+      "r3",
+      "r2",
+    ]);
+    expect(firstBody.next_cursor).not.toBeNull();
+
+    const secondPage = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?cursor=${encodeURIComponent(
+        firstBody.next_cursor ?? "",
+      )}`,
+    });
+
+    expect(secondPage.statusCode).toBe(200);
+    const secondBody = secondPage.json<{
+      data: HistoryItem[];
+      next_cursor: string | null;
+    }>();
+
+    expect(secondBody.data.map((item) => item.new_value)).toEqual(["r1"]);
+    expect(secondBody.next_cursor).toBeNull();
+  });
+
+  // `total` reflete a contagem de todas as alterações do herói,
+  // independente do filtro de campo ou de período da consulta.
+  it("retorna o total de alterações independente dos filtros aplicados", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?field=nickname`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ total: number }>();
+
+    expect(body.total).toBe(4);
+  });
+
+  // `field_totals` reflete a contagem por campo respeitando o filtro de
+  // período, mas ignorando o filtro de campo da própria consulta (todos os
+  // chips precisam mostrar contagem mesmo com um campo selecionado).
+  it("retorna field_totals por campo, ignorando o filtro de campo da consulta", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?field=nickname`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ field_totals: Record<string, number> }>();
+
+    expect(body.field_totals).toEqual({
+      name: 1,
+      nickname: 2,
+      universe: 1,
+    });
+  });
+
+  // `field_totals` respeita o filtro de período (from/to), mudando a
+  // contagem por campo quando o período restringe quais linhas entram.
+  it("restringe field_totals ao período informado", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?from=${encodeURIComponent(
+        "2024-01-01T01:00:00.000Z",
+      )}&to=${encodeURIComponent("2024-01-01T05:00:00.000Z")}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      total: number;
+      field_totals: Record<string, number>;
+    }>();
+
+    expect(body.total).toBe(4);
+    expect(body.field_totals).toEqual({
+      nickname: 1,
+      universe: 1,
+    });
+  });
+
   // Etapa 10 · C6.a — Dado um herói com version = 2 (depois de um PATCH
   // válido a partir da version 1), quando se chama `PATCH /heroes/:id` com
   // version: 1 (desatualizada, resultando em 409), então nenhuma linha nova

@@ -35,7 +35,7 @@ export function HeroDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="h-[600px]">
         <DialogHeader title={heroQuery.data?.nickname ?? "Herói"} />
         <DialogBody>
           {heroQuery.isPending ? (
@@ -54,8 +54,8 @@ export function HeroDetailsDialog({
               </TabsList>
 
               <TabsContent value="dados">
-                <div className="flex flex-col items-center gap-5">
-                  <span className="flex size-32 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                <div className="flex min-h-[320px] flex-col items-center justify-center gap-8">
+                  <span className="flex size-40 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
                     {heroQuery.data.avatar_url ? (
                       <img
                         src={heroQuery.data.avatar_url}
@@ -64,13 +64,13 @@ export function HeroDetailsDialog({
                       />
                     ) : (
                       <User
-                        className="size-14 text-gray-400"
+                        className="size-16 text-gray-400"
                         aria-hidden="true"
                       />
                     )}
                   </span>
 
-                  <div className="grid w-full grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                  <div className="grid w-full max-w-md grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2">
                     <div>
                       <p className="font-bold text-gray-900">Nome completo:</p>
                       <p className="text-gray-700">{heroQuery.data.name}</p>

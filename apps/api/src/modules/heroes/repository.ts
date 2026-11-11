@@ -289,7 +289,7 @@ export interface HeroChangeRow {
   created_at: Date;
 }
 
-export const HISTORY_PAGE_SIZE = 10;
+export const HISTORY_PAGE_SIZE = 5;
 
 export interface ListHeroHistoryParams {
   heroId: string;
@@ -337,4 +337,63 @@ export async function listHeroHistory(
     .limit(limit);
 
   return rows;
+}
+
+export async function countHeroHistoryTotal(
+  db: Database,
+  heroId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(heroChanges)
+    .where(
+      and(eq(heroChanges.hero_id, heroId), ne(heroChanges.event, "created")),
+    );
+
+  return Number(row?.count ?? 0);
+}
+
+export interface GetHeroHistoryFieldTotalsParams {
+  heroId: string;
+  from?: Date;
+  to?: Date;
+}
+
+export async function getHeroHistoryFieldTotals(
+  db: Database,
+  params: GetHeroHistoryFieldTotalsParams,
+): Promise<Record<string, number>> {
+  const { heroId, from, to } = params;
+
+  const conditions = [
+    eq(heroChanges.hero_id, heroId),
+    ne(heroChanges.event, "created"),
+  ];
+
+  if (from !== undefined) {
+    conditions.push(gte(heroChanges.created_at, from));
+  }
+
+  if (to !== undefined) {
+    conditions.push(lte(heroChanges.created_at, to));
+  }
+
+  const rows = await db
+    .select({
+      field: heroChanges.field,
+      count: sql<number>`count(*)`,
+    })
+    .from(heroChanges)
+    .where(and(...conditions))
+    .groupBy(heroChanges.field);
+
+  const totals: Record<string, number> = {};
+
+  for (const row of rows) {
+    if (row.field !== null) {
+      totals[row.field] = Number(row.count);
+    }
+  }
+
+  return totals;
 }

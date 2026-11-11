@@ -1,4 +1,8 @@
-import type { HeroResponse, MissionDetail } from "@hero-factory/shared";
+import type {
+  HeroChange,
+  HeroResponse,
+  MissionDetail,
+} from "@hero-factory/shared";
 
 export function buildHeroFixture(
   overrides: Partial<HeroResponse> = {},
@@ -17,6 +21,19 @@ export function buildHeroFixture(
     version: 1,
     created_at: now,
     updated_at: now,
+    ...overrides,
+  };
+}
+
+export function buildHeroChangeFixture(
+  overrides: Partial<HeroChange> = {},
+): HeroChange {
+  return {
+    event: "updated",
+    field: "nickname",
+    old_value: "Super-Homem",
+    new_value: "Homem de Aço",
+    created_at: "2024-05-01T10:00:00.000Z",
     ...overrides,
   };
 }
