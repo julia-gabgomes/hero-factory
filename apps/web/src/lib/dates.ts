@@ -43,24 +43,36 @@ export function startOfMonthAsDateInputValue(): string {
   return `${year ?? ""}-${month ?? ""}-01`;
 }
 
+const MONTH_ABBREVIATIONS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
 export function formatDateInputValueShort(value: string): string {
-  const monthNames = [
-    "jan",
-    "fev",
-    "mar",
-    "abr",
-    "mai",
-    "jun",
-    "jul",
-    "ago",
-    "set",
-    "out",
-    "nov",
-    "dez",
-  ];
   const [, month, day] = value.split("-");
   const monthIndex = Number(month) - 1;
-  return `${day ?? ""} ${monthNames[monthIndex] ?? ""}`;
+  return `${day ?? ""} ${MONTH_ABBREVIATIONS[monthIndex] ?? ""}`;
+}
+
+// Mesma garantia de `formatDateTime`: timestamp ISO 8601 com Z é inequívoco,
+// então `new Date` aqui é seguro.
+export function formatMissionDateTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = MONTH_ABBREVIATIONS[date.getMonth()] ?? "";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${day} ${month}, ${hours}:${minutes}`;
 }
 
 export function dateTimeLocalToIsoUtc(dateTimeLocalValue: string): string {
