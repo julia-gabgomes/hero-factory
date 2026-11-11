@@ -38,7 +38,7 @@ export function RootLayout() {
           <Outlet />
         </main>
       </div>
-      <Toaster richColors position="top-center" />
+      <Toaster richColors position="bottom-center" closeButton />
     </TooltipProvider>
   );
 }
