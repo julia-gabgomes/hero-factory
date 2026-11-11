@@ -22,6 +22,7 @@ export function MissionCard({ mission, onOpenDetails }: MissionCardProps) {
         {isTerminal ? null : (
           <MissionCardMenu
             missionId={mission.id}
+            missionTitle={mission.title}
             status={mission.status}
             assignedHeroesTotal={mission.assigned_heroes_total}
           />

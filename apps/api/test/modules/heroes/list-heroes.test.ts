@@ -6,13 +6,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `GET /heroes` existe, devolve 200 com
-//   `{ data, next_cursor, prev_cursor }`, listando os heróis não excluídos,
-//   mais novos primeiro (`ORDER BY created_at DESC, id DESC`), no máximo 10
-//   por página. Ainda sem busca (`q`) nem cursor de paginação de verdade
-//   (etapa 08).
-
 function validCreatePayload(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
@@ -65,10 +58,6 @@ describe("GET /heroes (MySQL real via Testcontainers)", () => {
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 04 · C1.a — Dados 3 heróis criados em sequência (A, depois B,
-  // depois C, com um pequeno intervalo entre as chamadas para que o
-  // timestamp de criação de cada um seja distinto), quando se chama
-  // `GET /heroes`, então a ordem da lista é C, B, A (mais novo primeiro).
   it("lista os heróis com o mais novo primeiro", async () => {
     const heroA = await createHero(app);
     await sleep(10);
@@ -85,8 +74,6 @@ describe("GET /heroes (MySQL real via Testcontainers)", () => {
     expect(ids).toEqual([heroC.id, heroB.id, heroA.id]);
   });
 
-  // Etapa 04 · C2.a — Dados 15 heróis criados, quando se chama
-  // `GET /heroes`, então a resposta tem exatamente 10 itens.
   it("devolve no máximo 10 heróis por página", async () => {
     for (let index = 0; index < 15; index += 1) {
       await createHero(app);
@@ -99,9 +86,6 @@ describe("GET /heroes (MySQL real via Testcontainers)", () => {
     expect(body.data).toHaveLength(10);
   });
 
-  // Etapa 04 · C3.a — Dado um herói ativo (criado via `POST /heroes`) e um
-  // herói com `deleted_at` preenchido (inserido direto no banco), quando se
-  // chama `GET /heroes`, então só o herói ativo aparece na lista.
   it("não lista heróis com deleted_at preenchido", async () => {
     const activeHero = await createHero(app);
 
@@ -130,8 +114,6 @@ describe("GET /heroes (MySQL real via Testcontainers)", () => {
     expect(ids).toEqual([activeHero.id]);
   });
 
-  // Etapa 04 · C4.a — Dado nenhum herói cadastrado (banco de teste limpo),
-  // quando se chama `GET /heroes`, então a resposta é 200 com `data = []`.
   it("devolve lista vazia quando não há nenhum herói cadastrado", async () => {
     const response = await app.inject({ method: "GET", url: "/heroes" });
 

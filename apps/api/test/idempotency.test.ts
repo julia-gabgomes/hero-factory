@@ -10,20 +10,6 @@ import {
   withIdempotency,
 } from "../src/http/idempotency.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `apps/api/src/http/idempotency.ts` exporta:
-//   - `withIdempotency(db, { scope, key, requestHash }, fn)`, onde `fn` é
-//     `(tx) => Promise<{ status: number; body: T }>` e `tx` é a transação
-//     Drizzle aberta pelo próprio helper. O retorno é
-//     `Promise<{ status: number; body: T; replayed: boolean }>`.
-//   - `IdempotencyKeyMismatchError`, uma classe de erro com a propriedade
-//     `code === "IDEMPOTENCY_KEY_MISMATCH"`, lançada quando a mesma chave é
-//     usada de novo com um `requestHash` diferente.
-//   O helper insere a linha em `idempotency_keys` (PK `(scope, key)`) na
-//   mesma transação em que roda `fn`, grava `response_status`/
-//   `response_body` antes do commit e deixa o rollback desfazer tudo se
-//   `fn` falhar.
-
 describe("withIdempotency (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;
 
@@ -35,12 +21,6 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     await testDatabase.stop();
   }, 60_000);
 
-  // Etapa 01 · C1.a — Dado duas chamadas de `withIdempotency` disparadas ao
-  // mesmo tempo (via `Promise.all`, sem await entre elas) com o mesmo
-  // `scope`, `key` e `requestHash`, quando ambas terminam, então `fn` foi
-  // chamado exatamente uma vez, as duas chamadas devolvem o mesmo `status`
-  // e o mesmo `body`, e exatamente uma das duas vem marcada com
-  // `replayed: true` (a outra com `replayed: false`).
   it("executa fn uma vez só em duas chamadas concorrentes com a mesma chave", async () => {
     const scope = "test-concurrent";
     const key = randomUUID();
@@ -68,11 +48,6 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     expect(replayedFlags).toEqual([false, true]);
   });
 
-  // Etapa 01 · C2.a — Dado uma chave já usada com `requestHash = "abc"`,
-  // quando se chama `withIdempotency` de novo com a mesma chave e
-  // `requestHash = "xyz"`, então a chamada lança um erro identificável como
-  // `IDEMPOTENCY_KEY_MISMATCH` (instância de `IdempotencyKeyMismatchError`
-  // com `code === "IDEMPOTENCY_KEY_MISMATCH"`).
   it("lança IDEMPOTENCY_KEY_MISMATCH quando a mesma chave é usada com outro requestHash", async () => {
     const scope = "test-mismatch";
     const key = randomUUID();
@@ -100,9 +75,6 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     );
   });
 
-  // Etapa 01 · C3.a — Dado uma chave nunca usada, quando se chama
-  // `withIdempotency`, então `fn` é executado e o resultado devolvido tem o
-  // `status` e o `body` produzidos por `fn`, com `replayed: false`.
   it("executa fn normalmente numa chave nunca usada e devolve replayed: false", async () => {
     const scope = "test-fresh";
     const key = randomUUID();
@@ -126,12 +98,6 @@ describe("withIdempotency (MySQL real via Testcontainers)", () => {
     });
   });
 
-  // Etapa 01 · C4.a — Dado uma `fn` que insere uma linha de verdade em
-  // `heroes` e depois lança um erro, quando `withIdempotency` é chamado,
-  // então: (1) o erro é propagado; (2) a linha inserida por `fn` não
-  // persiste (rollback); (3) a chave não fica em `idempotency_keys`; e (4)
-  // uma chamada seguinte com a mesma chave executa `fn` de novo
-  // normalmente, em vez de ser tratada como réplica ou como conflito.
   it("desfaz a escrita de fn e não grava a chave quando fn falha", async () => {
     const scope = "test-rollback";
     const key = randomUUID();

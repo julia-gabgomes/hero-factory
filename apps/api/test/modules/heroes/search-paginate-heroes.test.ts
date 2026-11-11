@@ -7,13 +7,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `GET /heroes?q=...` busca por `name`/`nickname` (sem diferenciar
-//   maiúsculas/acentos, qualquer parte do texto), escapando `%`, `_` e `\`
-//   antes de montar o `LIKE`.
-// - `GET /heroes?cursor=...` usa o cursor opaco devolvido em `next_cursor`
-//   para avançar a paginação real (base64url de `created_at` + `id`).
-
 function validCreatePayload(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
@@ -62,11 +55,6 @@ describe("GET /heroes com busca e paginação por cursor (MySQL real via Testcon
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 08 · C1.a — Dado um herói com `name = "João Silva"` e um segundo
-  // herói "de controle" com `name = "Peter Parker"` (que não contém "joao"
-  // nem nada parecido), quando se chama `GET /heroes?q=joao` (sem acento,
-  // minúsculo), então o primeiro herói aparece no resultado e o herói de
-  // controle NÃO aparece.
   it("encontra herói pelo name buscando sem acento e em minúsculas, e exclui quem não combina", async () => {
     const hero = await createHero(app, { name: "João Silva" });
     const controlHero = await createHero(app, { name: "Peter Parker" });
@@ -80,11 +68,6 @@ describe("GET /heroes com busca e paginação por cursor (MySQL real via Testcon
     expect(ids).not.toContain(controlHero.id);
   });
 
-  // Etapa 08 · C1.b — Dado um herói com `nickname = "Capitão"` e um segundo
-  // herói "de controle" com `nickname = "Aranha"` (que não contém "capitao"
-  // nem nada parecido), quando se chama `GET /heroes?q=capitao` (sem
-  // acento), então o primeiro herói aparece no resultado e o herói de
-  // controle NÃO aparece.
   it("encontra herói pelo nickname buscando sem acento, e exclui quem não combina", async () => {
     const hero = await createHero(app, { nickname: "Capitão" });
     const controlHero = await createHero(app, { nickname: "Aranha" });
@@ -101,10 +84,6 @@ describe("GET /heroes com busca e paginação por cursor (MySQL real via Testcon
     expect(ids).not.toContain(controlHero.id);
   });
 
-  // Etapa 08 · C2.a — Dado um herói com `nickname = "100% Herói"` e outro
-  // com `nickname = "Herói Comum"`, quando se chama `GET /heroes` com
-  // `q=100%` (o `%` passado como texto literal do campo de busca), então só
-  // o primeiro herói aparece: o `%` não é tratado como wildcard do LIKE.
   it("trata % digitado na busca como texto literal, não como wildcard do LIKE", async () => {
     const heroWithPercent = await createHero(app, { nickname: "100% Herói" });
     await createHero(app, { nickname: "Herói Comum" });
@@ -120,11 +99,6 @@ describe("GET /heroes com busca e paginação por cursor (MySQL real via Testcon
     expect(ids).toEqual([heroWithPercent.id]);
   });
 
-  // Etapa 08 · C3.a — Dados 15 heróis inseridos diretamente no banco com o
-  // mesmo `created_at` (desempate só pelo `id`, UUIDv7 crescente), quando se
-  // percorre `GET /heroes` seguindo `next_cursor` até ele vir ausente/nulo,
-  // então a união de todas as páginas tem exatamente os 15 ids, cada um
-  // aparecendo uma única vez (sem repetir, sem pular).
   it("percorre todas as páginas sem repetir nem pular heróis com o mesmo created_at", async () => {
     const sameCreatedAt = new Date("2024-05-01T10:00:00.000Z");
     const ids = Array.from({ length: 15 }, () => uuidv7()).sort();
@@ -171,8 +145,6 @@ describe("GET /heroes com busca e paginação por cursor (MySQL real via Testcon
     expect(new Set(collectedIds)).toEqual(new Set(ids));
   });
 
-  // Etapa 08 · C4.a — Dado menos de 10 heróis no banco, quando se chama
-  // `GET /heroes`, então a resposta não tem `next_cursor` (ele é `null`).
   it("não devolve next_cursor quando há menos de 10 heróis", async () => {
     for (let index = 0; index < 5; index += 1) {
       await createHero(app);

@@ -12,13 +12,6 @@ import {
   missionStatusSchema,
 } from "./index.js";
 
-// Correção pós-revisão final · reexportação única — Dado o módulo
-// packages/shared/src/index.ts, quando se importa dele (e não de um import
-// profundo em schemas/, errors/, dates/ etc.), então os schemas e funções
-// criados nesta tarefa estão disponíveis como valores em runtime. Os tipos
-// inferidos (ErrorCode, CreateHeroInput etc.) também devem ser reexportados
-// por esse mesmo caminho, mas um teste de tipo para cada um seria
-// desproporcional, por isso este teste cobre só os valores/schemas.
 describe("packages/shared entry point", () => {
   it("reexporta limits", () => {
     expect(limits).toBeDefined();

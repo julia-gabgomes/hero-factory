@@ -6,21 +6,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `POST /heroes/:id/activate` e `POST /heroes/:id/deactivate` existem,
-//   exigem `version` no corpo e usam o mesmo lock otimista do PATCH/DELETE
-//   (etapas 05/06): `UPDATE heroes SET is_active = :novoValor,
-//   version = version + 1 WHERE id = :id AND version = :version
-//   AND deleted_at IS NULL`.
-//   Zero linhas afetadas distingue 404 NOT_FOUND (herói inexistente ou
-//   excluído) de 409 VERSION_CONFLICT (herói existe, não excluído, mas a
-//   version enviada está desatualizada), com `error.details.current`
-//   contendo o estado atual nesse último caso. Quando a transição é
-//   aplicada, a resposta de sucesso é 200 com o herói atualizado
-//   (is_active no novo valor), consistente com o formato de sucesso do
-//   PATCH/DELETE. O herói inativo continua visível em GET /heroes e
-//   GET /heroes/:id.
-
 type HeroBody = {
   id: string;
   name: string;
@@ -83,9 +68,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 07 · C1.a — Dado um herói ativo com version = 1, quando se chama
-  // `POST /heroes/:id/deactivate` com `{ version: 1 }`, então a resposta
-  // indica sucesso e `GET /heroes/:id` mostra `is_active: false`.
   it("inativa o herói com a version correta e GET /heroes/:id reflete is_active: false", async () => {
     const created = await createHero(app);
     expect(created.is_active).toBe(true);
@@ -106,9 +88,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     expect(body.is_active).toBe(false);
   });
 
-  // Etapa 07 · C2.a — Dado um herói inativo com version = 2, quando se
-  // chama `POST /heroes/:id/activate` com `{ version: 2 }`, então a
-  // resposta indica sucesso e `GET /heroes/:id` mostra `is_active: true`.
   it("ativa o herói com a version correta e GET /heroes/:id reflete is_active: true", async () => {
     const created = await createHero(app);
 
@@ -138,9 +117,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     expect(body.is_active).toBe(true);
   });
 
-  // Etapa 07 · C3.a — Dado um herói inativo, quando se chama
-  // `GET /heroes`, então ele aparece na lista; quando se chama
-  // `GET /heroes/:id`, então a resposta é 200 (não 404).
   it("mantém o herói inativo visível em GET /heroes e GET /heroes/:id", async () => {
     const created = await createHero(app);
 
@@ -168,9 +144,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     expect(found?.is_active).toBe(false);
   });
 
-  // Etapa 07 · C4.a — Dado um id que nunca foi usado, quando se chama
-  // `POST /heroes/:id/deactivate` (e, separadamente, `/activate`) com um
-  // corpo válido, então a resposta é 404 com error.code = "NOT_FOUND".
   it("devolve 404 NOT_FOUND ao inativar um id que nunca existiu", async () => {
     const response = await app.inject({
       method: "POST",
@@ -195,9 +168,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 07 · C5.a — Dado um herói excluído, quando se chama
-  // `POST /heroes/:id/activate` com a version certa, então a resposta é
-  // 404 com error.code = "NOT_FOUND", mesmo com a version certa.
   it("devolve 404 NOT_FOUND ao ativar um herói excluído, mesmo com a version certa", async () => {
     const created = await createHero(app);
 
@@ -221,10 +191,6 @@ describe("POST /heroes/:id/activate e /deactivate (MySQL real via Testcontainers
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 07 · C6.a — Dado um herói ativo com version = 2, quando se chama
-  // `POST /heroes/:id/deactivate` com version: 1 (desatualizada), então a
-  // resposta é 409 com error.code = "VERSION_CONFLICT" e
-  // error.details.current com o estado atual (version: 2).
   it("devolve 409 VERSION_CONFLICT com details.current quando a version está desatualizada", async () => {
     const created = await createHero(app);
 
