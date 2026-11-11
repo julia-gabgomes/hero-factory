@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
-import type { CreateMissionInput } from "@hero-factory/shared";
+import type { CreateMissionInput, MissionStatus } from "@hero-factory/shared";
 import type { Database } from "../../db/client.js";
 import { badRequest, invalidState, notFound } from "../../http/errors.js";
 import { decodeCursor, encodeCursor } from "../../http/cursor.js";
@@ -84,13 +84,14 @@ export interface MissionPage {
 
 export interface ListMissionsPageParams {
   cursor?: string;
+  status?: MissionStatus[];
 }
 
 export async function listMissionsPage(
   db: Database,
   params: ListMissionsPageParams = {},
 ): Promise<MissionPage> {
-  const { cursor } = params;
+  const { cursor, status } = params;
 
   const decodedCursor = cursor !== undefined ? decodeCursor(cursor) : null;
 
@@ -100,6 +101,7 @@ export async function listMissionsPage(
 
   const rows = await listMissions(db, {
     cursor: decodedCursor ?? undefined,
+    status,
     limit: LIST_PAGE_SIZE + 1,
   });
 
