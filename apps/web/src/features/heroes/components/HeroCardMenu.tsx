@@ -38,10 +38,10 @@ export function HeroCardMenu({
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
           role="menu"
-          side="left"
+          side="bottom"
           align="start"
-          sideOffset={8}
-          className="flex flex-col gap-1 rounded-xl bg-white p-2 shadow-lg"
+          sideOffset={4}
+          className="flex flex-col items-center gap-1 rounded-xl bg-white p-2 shadow-lg"
         >
           <Tooltip content="Excluir herói">
             <button

@@ -18,13 +18,18 @@ export function useTypedSearch<Schema extends z.ZodTypeAny>(
       setSearchParams((previous) => {
         const next = new URLSearchParams(previous);
         for (const [key, value] of Object.entries(patch)) {
-          if (value === undefined || value === "") {
+          if (
+            value === undefined ||
+            value === "" ||
+            (Array.isArray(value) && value.length === 0)
+          ) {
             next.delete(key);
+          } else if (typeof value === "string") {
+            next.set(key, value);
+          } else if (Array.isArray(value)) {
+            next.set(key, value.join(","));
           } else {
-            next.set(
-              key,
-              typeof value === "string" ? value : JSON.stringify(value),
-            );
+            next.set(key, JSON.stringify(value));
           }
         }
         return next;

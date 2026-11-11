@@ -306,7 +306,7 @@ Mantenha esta tabela, o `package.json`, o `docker-compose.yml` e o README **semp
 4. Implemente seguindo as camadas do app.
 5. Mudou o banco? Rode `pnpm db:generate` e **revise o SQL gerado** (índices, collation, `DATETIME(3)`), ajustando se preciso.
 6. Rode `pnpm lint && pnpm typecheck && pnpm test`.
-7. Faça commit pequeno no padrão **Conventional Commits, em inglês**: `feat(heroes): add optimistic locking on update`.
+7. Faça commit pequeno no padrão **Conventional Commits, em português**: `feat(heroes): adiciona lock otimista na atualização`. (Decisão revista: o restante do código, identificadores e comentários continuam em inglês pela seção 3.4; só a mensagem do commit passou para português, a pedido de quem mantém o repositório.)
 
 ### 4.5 Definition of Done
 

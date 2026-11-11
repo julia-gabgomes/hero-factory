@@ -4,6 +4,7 @@ import {
   listMissionsQuerySchema,
   missionDetailSchema,
   missionResponseSchema,
+  missionStatusListSchema,
   missionStatusSchema,
 } from "./mission.js";
 
@@ -278,5 +279,80 @@ describe("listMissionsQuerySchema", () => {
     expect(listMissionsQuerySchema.safeParse({ cursor: "abc" }).success).toBe(
       true,
     );
+  });
+
+  it("aceita status ausente", () => {
+    const result = listMissionsQuerySchema.safeParse({ cursor: "abc" });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.status).toBeUndefined();
+    }
+  });
+
+  it("aceita status como lista CSV e devolve um array", () => {
+    const result = listMissionsQuerySchema.safeParse({
+      status: "scheduled,failed",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.status).toEqual(["scheduled", "failed"]);
+    }
+  });
+
+  it("rejeita um status inválido dentro da lista", () => {
+    const result = listMissionsQuerySchema.safeParse({
+      status: "scheduled,pausada",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("missionStatusListSchema", () => {
+  it("transforma uma string CSV num array de situações", () => {
+    const result = missionStatusListSchema.safeParse("scheduled,failed");
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual(["scheduled", "failed"]);
+    }
+  });
+
+  it("aceita um array vindo diretamente, como numa chave repetida do Fastify", () => {
+    const result = missionStatusListSchema.safeParse(["scheduled", "failed"]);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual(["scheduled", "failed"]);
+    }
+  });
+
+  it("ignora espaços nas pontas de cada item", () => {
+    const result = missionStatusListSchema.safeParse(" scheduled , failed ");
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual(["scheduled", "failed"]);
+    }
+  });
+
+  it.each([undefined, null, ""])(
+    "trata %p como ausência de filtro",
+    (value) => {
+      const result = missionStatusListSchema.safeParse(value);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toBeUndefined();
+      }
+    },
+  );
+
+  it("rejeita um valor que não é uma situação conhecida", () => {
+    const result = missionStatusListSchema.safeParse("pausada");
+
+    expect(result.success).toBe(false);
   });
 });

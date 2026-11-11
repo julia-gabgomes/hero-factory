@@ -63,8 +63,24 @@ export const missionDetailSchema = missionResponseSchema.extend({
 
 export type MissionDetail = z.infer<typeof missionDetailSchema>;
 
+export const missionStatusListSchema = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (!Array.isArray(value) && typeof value !== "string") {
+    return value;
+  }
+  const raw = Array.isArray(value) ? value : value.split(",");
+  const values = raw
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  return values.length > 0 ? values : undefined;
+}, z.array(missionStatusSchema).min(1).optional());
+
 export const listMissionsQuerySchema = z.object({
   cursor: z.string().optional(),
+  status: missionStatusListSchema,
 });
 
 export type ListMissionsQuery = z.infer<typeof listMissionsQuerySchema>;

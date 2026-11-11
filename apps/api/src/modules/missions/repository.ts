@@ -229,6 +229,7 @@ export const LIST_PAGE_SIZE = 10;
 
 export interface ListMissionsParams {
   cursor?: HeroListCursor;
+  status?: MissionStatus[];
   limit?: number;
 }
 
@@ -236,9 +237,13 @@ export async function listMissions(
   db: Database,
   params: ListMissionsParams = {},
 ): Promise<MissionResponse[]> {
-  const { cursor, limit = LIST_PAGE_SIZE } = params;
+  const { cursor, status, limit = LIST_PAGE_SIZE } = params;
 
   const conditions = [];
+
+  if (status !== undefined && status.length > 0) {
+    conditions.push(inArray(missions.status, status));
+  }
 
   if (cursor !== undefined) {
     conditions.push(

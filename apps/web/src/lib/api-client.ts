@@ -26,7 +26,7 @@ export class ApiError extends Error {
 
 function buildUrl(
   path: string,
-  query?: Record<string, string | undefined>,
+  query?: Record<string, string | string[] | undefined>,
 ): string {
   const url = `${API_BASE}${path}`;
   if (!query) {
@@ -35,7 +35,14 @@ function buildUrl(
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) {
+    if (value === undefined) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        params.set(key, value.join(","));
+      }
+    } else {
       params.set(key, value);
     }
   }
@@ -57,7 +64,7 @@ interface RequestOptions {
   method?: string;
   path: string;
   body?: unknown;
-  query?: Record<string, string | undefined>;
+  query?: Record<string, string | string[] | undefined>;
   idempotencyKey?: string;
   signal?: AbortSignal;
 }
@@ -126,7 +133,7 @@ async function apiRequest<T>(options: RequestOptions): Promise<T> {
 export const apiClient = {
   get<T>(
     path: string,
-    query?: Record<string, string | undefined>,
+    query?: Record<string, string | string[] | undefined>,
     signal?: AbortSignal,
   ): Promise<T> {
     return apiRequest<T>({ path, query, signal });

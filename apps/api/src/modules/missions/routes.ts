@@ -5,6 +5,7 @@ import {
   assignHeroToMissionSchema,
   createMissionSchema,
   finishMissionSchema,
+  listMissionsQuerySchema,
 } from "@hero-factory/shared";
 import { badRequest } from "../../http/errors.js";
 import {
@@ -23,10 +24,6 @@ const missionHeroParamsSchema = z.object({
   id: z.string(),
   heroId: z.string(),
 });
-const listMissionsQuerySchema = z.object({
-  cursor: z.string().optional(),
-});
-
 export function missionRoutes(app: FastifyInstance): void {
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
@@ -61,6 +58,7 @@ export function missionRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const page = await listMissionsPage(app.db, {
         cursor: request.query.cursor,
+        status: request.query.status,
       });
 
       reply.code(200).send(page);
