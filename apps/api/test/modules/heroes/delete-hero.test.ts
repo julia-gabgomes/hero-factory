@@ -7,18 +7,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `DELETE /heroes/:id` existe, exige `version` no corpo e usa o mesmo
-//   mecanismo de lock otimista do PATCH (etapa 05):
-//   `UPDATE heroes SET deleted_at = NOW(3), version = version + 1
-//    WHERE id = :id AND version = :version AND deleted_at IS NULL`.
-//   Zero linhas afetadas distingue 404 NOT_FOUND (herói inexistente ou já
-//   excluído) de 409 VERSION_CONFLICT (herói existe, ativo, mas a version
-//   enviada está desatualizada), com `error.details.current` contendo o
-//   estado atual nesse último caso. Quando a exclusão é aplicada, a
-//   resposta de sucesso é 200 com o herói atualizado (deleted_at
-//   preenchido), consistente com o formato de sucesso do PATCH.
-
 type HeroBody = {
   id: string;
   name: string;
@@ -80,10 +68,6 @@ describe("DELETE /heroes/:id (MySQL real via Testcontainers)", () => {
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 06 · C1.a — Dado um herói com version = 1, quando se chama
-  // `DELETE /heroes/:id` com `{ version: 1 }`, então a resposta indica
-  // sucesso (200) e, consultando o banco diretamente, `deleted_at` do
-  // herói está preenchido (não é null).
   it("exclui o herói com a version correta e preenche deleted_at no banco", async () => {
     const created = await createHero(app);
 
@@ -103,9 +87,6 @@ describe("DELETE /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(row?.deleted_at).not.toBeNull();
   });
 
-  // Etapa 06 · C2.a — Dado um herói excluído pela ação anterior, quando se
-  // chama `GET /heroes/:id`, então a resposta é 404; quando se chama
-  // `GET /heroes`, então esse herói não aparece na lista.
   it("some de GET /heroes/:id (404) e de GET /heroes (lista) depois de excluído", async () => {
     const created = await createHero(app);
 
@@ -133,9 +114,6 @@ describe("DELETE /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(listBody.data.some((hero) => hero.id === created.id)).toBe(false);
   });
 
-  // Etapa 06 · C3.a — Dado um id que nunca foi usado, quando se chama
-  // `DELETE /heroes/:id` com um corpo válido, então a resposta é 404 com
-  // error.code = "NOT_FOUND".
   it("devolve 404 NOT_FOUND quando o id nunca existiu", async () => {
     const response = await app.inject({
       method: "DELETE",
@@ -148,9 +126,6 @@ describe("DELETE /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 06 · C4.a — Dado um herói já excluído, quando se chama
-  // `DELETE /heroes/:id` de novo com a version certa, então a resposta é
-  // 404 com error.code = "NOT_FOUND", mesmo com a version certa.
   it("devolve 404 NOT_FOUND ao excluir de novo um herói já excluído, mesmo com a version certa", async () => {
     const created = await createHero(app);
 
@@ -174,10 +149,6 @@ describe("DELETE /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 06 · C5.a — Dado um herói ativo com version = 2, quando se chama
-  // `DELETE /heroes/:id` com version: 1 (desatualizada), então a resposta
-  // é 409 com error.code = "VERSION_CONFLICT" e error.details.current com
-  // o estado atual (incluindo version: 2 e deleted_at ainda null).
   it("devolve 409 VERSION_CONFLICT com details.current quando a version está desatualizada", async () => {
     const created = await createHero(app);
 

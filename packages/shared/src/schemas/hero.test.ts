@@ -9,23 +9,6 @@ import {
   updateHeroSchema,
 } from "./hero.js";
 
-// Nomes e assinaturas adotados (a etapa não os fixa):
-// - `createHeroSchema`: schema de criação. Campos `name`, `nickname`,
-//   `universe`, `main_power` e `date_of_birth` são obrigatórios; `avatar_url`
-//   é opcional. Todo campo de texto é `trim()`-ado antes de validar, e texto
-//   só com espaços conta como vazio (erro de obrigatório). `date_of_birth` é
-//   validado como string `"YYYY-MM-DD"` não futura segundo a regra UTC+14.
-//   Campos controlados pelo servidor (`id`, `created_at`, `updated_at`,
-//   `deleted_at`, `version`) não fazem parte do schema e por isso não
-//   aparecem no valor validado, mesmo se enviados na entrada.
-// - `updateHeroSchema`: os mesmos campos de `createHeroSchema`, todos
-//   opcionais (schema parcial), com as mesmas regras de trim, limite e data
-//   não futura aplicadas a qualquer campo que for enviado.
-// Para C5, como a validação de data depende de "agora" e o `.refine` do Zod
-// não recebe um `now` injetado, os testes usam datas relativas ao dia real
-// de hoje (ontem é sempre válida; o ano 9999 é sempre futuro, em qualquer
-// fuso), sem relógio falso.
-
 function validCreateInput(): Record<string, unknown> {
   return {
     name: "Clark Kent",
@@ -37,19 +20,12 @@ function validCreateInput(): Record<string, unknown> {
 }
 
 describe("createHeroSchema", () => {
-  // Etapa 05 · C1.a — Dado um objeto com todos os campos obrigatórios
-  // preenchidos (name, nickname, universe, main_power, date_of_birth) e sem
-  // avatar_url, quando se valida contra o schema de criação, então a
-  // validação passa.
   it("aceita um objeto com todos os campos obrigatórios e sem avatar_url", () => {
     const result = createHeroSchema.safeParse(validCreateInput());
 
     expect(result.success).toBe(true);
   });
 
-  // Etapa 05 · C1.b — Dado um objeto sem o campo name, quando se valida
-  // contra o schema de criação, então a validação falha apontando name como
-  // obrigatório.
   it("rejeita um objeto sem o campo name, apontando name como obrigatório", () => {
     const input = validCreateInput();
     delete input.name;
@@ -64,9 +40,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C2.a — Dado um objeto com nickname = "   " (só espaços),
-  // quando se valida contra o schema de criação, então a validação falha
-  // apontando nickname como obrigatório/vazio.
   it("rejeita nickname preenchido só com espaços, tratando como vazio", () => {
     const input = { ...validCreateInput(), nickname: "   " };
 
@@ -80,9 +53,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C3.a — Dado um objeto com name = "  Clark Kent  ", quando se
-  // valida contra o schema de criação, então o valor resultante de name é
-  // "Clark Kent", sem espaços nas pontas.
   it("remove os espaços das pontas de name no valor validado", () => {
     const input = { ...validCreateInput(), name: "  Clark Kent  " };
 
@@ -94,9 +64,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C4.a — Dado um objeto com name tendo 121 code points, quando
-  // se valida contra o schema de criação, então a validação falha apontando
-  // o limite de name.
   it("rejeita name com 121 code points, acima do limite", () => {
     const input = { ...validCreateInput(), name: "a".repeat(121) };
 
@@ -110,9 +77,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C4.b — Dado um objeto com name tendo exatamente 120 code
-  // points, quando se valida contra o schema de criação, então a validação
-  // passa.
   it("aceita name com exatamente 120 code points", () => {
     const input = { ...validCreateInput(), name: "a".repeat(120) };
 
@@ -121,9 +85,6 @@ describe("createHeroSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  // Etapa 05 · C5.a — Dado um objeto com date_of_birth igual a ontem
-  // (sempre não futura, em qualquer fuso, inclusive UTC+14), quando se
-  // valida contra o schema de criação, então a validação passa.
   it("aceita date_of_birth de ontem, que nunca é futura em nenhum fuso", () => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const dateOfBirth = [
@@ -138,10 +99,6 @@ describe("createHeroSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  // Etapa 05 · C5.b — Dado um objeto com date_of_birth = "9999-01-01" (uma
-  // data claramente futura segundo a regra UTC+14, em qualquer fuso),
-  // quando se valida contra o schema de criação, então a validação falha
-  // apontando date_of_birth como inválido.
   it("rejeita date_of_birth claramente futura, apontando date_of_birth", () => {
     const input = { ...validCreateInput(), date_of_birth: "9999-01-01" };
 
@@ -155,10 +112,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C6.a — Dado um objeto válido de criação com id, created_at,
-  // updated_at, deleted_at e version preenchidos arbitrariamente, quando se
-  // valida contra o schema de criação, então o valor resultante não contém
-  // nenhum desses campos.
   it("ignora campos controlados pelo servidor mesmo se enviados na criação", () => {
     const input = {
       ...validCreateInput(),
@@ -181,9 +134,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C8.a — Dado um objeto com
-  // avatar_url = "https://exemplo.com/avatar.png", quando se valida contra o
-  // schema de criação, então a validação passa.
   it("aceita avatar_url começando com https://", () => {
     const input = {
       ...validCreateInput(),
@@ -198,8 +148,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C8.b — Dado um objeto com avatar_url = "/uploads/avatar.png",
-  // quando se valida contra o schema de criação, então a validação passa.
   it("aceita avatar_url começando com /uploads/", () => {
     const input = { ...validCreateInput(), avatar_url: "/uploads/avatar.png" };
 
@@ -211,10 +159,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C8.c — Dado um objeto com
-  // avatar_url = "ftp://exemplo.com/avatar.png", quando se valida contra o
-  // schema de criação, então a validação falha apontando avatar_url como
-  // inválido.
   it("rejeita avatar_url que não começa com http://, https:// ou /uploads/", () => {
     const input = {
       ...validCreateInput(),
@@ -230,11 +174,6 @@ describe("createHeroSchema", () => {
       ).toBe(true);
     }
   });
-  // Correção pós-revisão final · calendário real — Dado um objeto com
-  // date_of_birth = "2024-02-31" (31 de fevereiro não existe em nenhum ano),
-  // quando se valida contra o schema de criação, então a validação falha
-  // apontando date_of_birth como inválido, porque o schema deve checar se a
-  // data existe no calendário, não só se casa o formato "YYYY-MM-DD".
   it("rejeita date_of_birth com dia que não existe no calendário, apontando date_of_birth", () => {
     const input = { ...validCreateInput(), date_of_birth: "2024-02-31" };
 
@@ -248,12 +187,6 @@ describe("createHeroSchema", () => {
     }
   });
 
-  // Correção pós-revisão final · avatar_url vazio tratado como ausente —
-  // Dado um objeto com avatar_url = "" (string vazia após trim), quando se
-  // valida contra o schema de criação, então a validação passa e o valor
-  // resultante não tem avatar_url (ou é undefined), do mesmo jeito que se o
-  // campo não tivesse sido enviado, em vez de ser rejeitado por não casar
-  // nenhum prefixo válido.
   it("trata avatar_url vazio como campo ausente, sem erro de formato", () => {
     const input = { ...validCreateInput(), avatar_url: "" };
 
@@ -267,12 +200,6 @@ describe("createHeroSchema", () => {
 });
 
 describe("updateHeroSchema", () => {
-  // Etapa 05 · C7.a — Dado um objeto com nickname e version preenchidos,
-  // quando se valida contra o schema de atualização, então a validação
-  // passa e os demais campos ficam ausentes (não são exigidos). `version`
-  // é obrigatório (lock otimista do PATCH, CLAUDE.md §3.3), por isso entra
-  // no payload mesmo este cenário sendo sobre os demais campos serem
-  // opcionais.
   it("aceita um objeto com nickname e version preenchidos, sem exigir os demais campos", () => {
     const result = updateHeroSchema.safeParse({
       nickname: "Super-Homem",
@@ -289,10 +216,6 @@ describe("updateHeroSchema", () => {
     }
   });
 
-  // Etapa 05 · C7.b — Dado um objeto de atualização com universe = "   "
-  // (só espaços), quando se valida contra o schema de atualização, então a
-  // validação falha do mesmo jeito que na criação (apontando universe como
-  // obrigatório/vazio).
   it("rejeita universe preenchido só com espaços, do mesmo jeito que na criação", () => {
     const result = updateHeroSchema.safeParse({ universe: "   " });
 
@@ -304,10 +227,6 @@ describe("updateHeroSchema", () => {
     }
   });
 
-  // Correção do bloqueante da revisão final · version obrigatório — Dado um
-  // objeto com version = 3 e nenhum outro campo, quando se valida contra o
-  // schema de atualização, então a validação passa (version é aceito, e os
-  // demais campos continuam opcionais).
   it("aceita um objeto com só version preenchido", () => {
     const result = updateHeroSchema.safeParse({ version: 3 });
 
@@ -317,10 +236,6 @@ describe("updateHeroSchema", () => {
     }
   });
 
-  // Correção do bloqueante da revisão final · version obrigatório — Dado um
-  // objeto sem o campo version (ex.: só { nickname: "Super" }), quando se
-  // valida contra o schema de atualização, então a validação falha
-  // apontando version como obrigatório.
   it("rejeita um objeto sem o campo version, apontando version como obrigatório", () => {
     const result = updateHeroSchema.safeParse({ nickname: "Super" });
 

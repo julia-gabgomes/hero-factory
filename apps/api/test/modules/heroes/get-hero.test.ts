@@ -6,11 +6,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `GET /heroes/:id` existe, devolve 200 com os dados do herói quando ele
-//   existe e não está excluído, e 404 `NOT_FOUND` quando o id não existe ou
-//   quando o herói foi excluído (`deleted_at` preenchido).
-
 function validCreatePayload(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
@@ -45,9 +40,6 @@ describe("GET /heroes/:id (MySQL real via Testcontainers)", () => {
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 03 · C1.a — Dado um herói criado via `POST /heroes`, quando se
-  // chama `GET /heroes/:id` com o id dele, então a resposta é 200 com os
-  // mesmos dados do herói (mesmo id e mesmo name).
   it("devolve 200 com os dados do herói existente e não excluído", async () => {
     const payload = validCreatePayload();
     const createResponse = await app.inject({
@@ -82,9 +74,6 @@ describe("GET /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.date_of_birth).toBe(payload.date_of_birth);
   });
 
-  // Etapa 03 · C2.a — Dado um id que nunca foi usado (UUID aleatório),
-  // quando se chama `GET /heroes/:id`, então a resposta é 404 com
-  // `error.code = "NOT_FOUND"`.
   it("devolve 404 NOT_FOUND quando o id nunca existiu", async () => {
     const response = await app.inject({
       method: "GET",
@@ -96,9 +85,6 @@ describe("GET /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 03 · C3.a — Dado um herói inserido diretamente no banco com
-  // `deleted_at` preenchido, quando se chama `GET /heroes/:id` com o id
-  // dele, então a resposta é 404 com `error.code = "NOT_FOUND"`.
   it("devolve 404 NOT_FOUND quando o herói está excluído (deleted_at preenchido)", async () => {
     const id = randomUUID();
     const now = new Date();

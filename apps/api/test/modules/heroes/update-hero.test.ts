@@ -6,17 +6,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `PATCH /heroes/:id` existe, valida o corpo com `updateHeroSchema` do
-//   `@hero-factory/shared` (campos opcionais + `version` obrigatório),
-//   aplica só os campos enviados, usa lock otimista via
-//   `UPDATE ... WHERE id = :id AND version = :version AND deleted_at IS NULL`,
-//   incrementa `version` em 1 e atualiza `updated_at` quando a atualização
-//   afeta uma linha. Zero linhas afetadas distingue 404 `NOT_FOUND` (herói
-//   inexistente ou excluído) de 409 `VERSION_CONFLICT` (herói existe, mas a
-//   `version` enviada está desatualizada), com `error.details.current`
-//   contendo o estado atual do herói nesse último caso.
-
 type HeroBody = {
   id: string;
   name: string;
@@ -81,11 +70,6 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 05 · C1.a — Dado um herói com version = 1, quando se chama
-  // `PATCH /heroes/:id` com `{ nickname: "Novo Nick", version: 1 }`, então a
-  // resposta é 200, o nickname muda, os demais campos (name, universe,
-  // main_power, date_of_birth) continuam iguais aos originais, version
-  // passa a ser 2, e updated_at é mais recente que o updated_at original.
   it("aplica só o campo enviado, incrementa a version e atualiza updated_at", async () => {
     const created = await createHero(app);
     await wait(20);
@@ -110,9 +94,6 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
     );
   });
 
-  // Etapa 05 · C2.a — Dado um id que nunca foi usado, quando se chama
-  // `PATCH /heroes/:id` com um corpo válido (incluindo version), então a
-  // resposta é 404 com error.code = "NOT_FOUND".
   it("devolve 404 NOT_FOUND quando o id nunca existiu", async () => {
     const response = await app.inject({
       method: "PATCH",
@@ -125,10 +106,6 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 05 · C3.a — Dado um herói com deleted_at preenchido (inserido
-  // direto no banco) e version = 1, quando se chama `PATCH /heroes/:id`
-  // com version: 1 (a correta), então a resposta é 404 com
-  // error.code = "NOT_FOUND", mesmo com a version certa.
   it("devolve 404 NOT_FOUND quando o herói está excluído, mesmo com a version correta", async () => {
     const id = randomUUID();
     const now = new Date();
@@ -157,11 +134,6 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  // Etapa 05 · C4.a — Dado um herói com version = 2 no banco (depois de um
-  // PATCH válido a partir da version 1), quando se chama `PATCH /heroes/:id`
-  // com version: 1 (desatualizada), então a resposta é 409 com
-  // error.code = "VERSION_CONFLICT" e error.details.current igual ao
-  // estado atual do herói, incluindo version: 2.
   it("devolve 409 VERSION_CONFLICT com details.current quando a version está desatualizada", async () => {
     const created = await createHero(app);
 
@@ -190,11 +162,6 @@ describe("PATCH /heroes/:id (MySQL real via Testcontainers)", () => {
     expect(body.error.details.current.nickname).toBe("Primeiro Nick");
   });
 
-  // Etapa 05 · C5.a — Dado um herói com version = 1, quando se disparam dois
-  // `PATCH /heroes/:id` concorrentes com version: 1 e corpos diferentes
-  // entre si (sem await entre as chamadas), então exatamente uma das
-  // respostas é 200 e a outra é 409 VERSION_CONFLICT, independentemente de
-  // qual delas venceu a corrida.
   it("resolve dois PATCHes concorrentes com a mesma version em exatamente um 200 e um 409", async () => {
     const created = await createHero(app);
 

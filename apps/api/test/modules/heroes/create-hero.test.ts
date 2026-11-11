@@ -7,14 +7,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - `POST /heroes` existe, exige o header `Idempotency-Key` (UUID) em todo
-//   pedido de criação, valida o corpo com `createHeroSchema` do
-//   `@hero-factory/shared`, usa `withIdempotency` (etapa 01) com o escopo
-//   da criação de herói, e grava o herói com `id` gerado pelo servidor,
-//   `version = 1`, `is_active = true`, `deleted_at = null` e
-//   `created_at`/`updated_at` em ISO 8601 UTC.
-
 function validCreatePayload(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
@@ -49,9 +41,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 02 · C1.a — Dado um corpo válido de criação, quando se chama
-  // `POST /heroes` sem o header `Idempotency-Key`, então a resposta é 400
-  // com `error.code = "BAD_REQUEST"`.
   it("devolve 400 BAD_REQUEST quando falta o header Idempotency-Key", async () => {
     const response = await app.inject({
       method: "POST",
@@ -64,10 +53,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("BAD_REQUEST");
   });
 
-  // Etapa 02 · C2.a — Dado um corpo válido com todos os campos obrigatórios
-  // e um `Idempotency-Key` novo, quando se chama `POST /heroes`, então a
-  // resposta é 201, o herói criado tem `version = 1`, `is_active = true`, e
-  // `created_at`/`updated_at` no formato ISO 8601 UTC.
   it("cria o herói e devolve 201 com version 1, is_active true e timestamps ISO 8601 UTC", async () => {
     const payload = validCreatePayload();
     const response = await app.inject({
@@ -107,11 +92,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(rows[0]?.is_active).toBe(true);
   });
 
-  // Etapa 02 · C3.a — Dado um corpo válido e uma `Idempotency-Key` X,
-  // quando se disparam dois `POST /heroes` concorrentes com X e o mesmo
-  // corpo (barreira), então existe exatamente um herói no banco com os
-  // dados desse corpo, e uma das duas respostas tem
-  // `Idempotent-Replayed: true`.
   it("cria exatamente um herói quando dois POSTs concorrentes usam a mesma Idempotency-Key e o mesmo corpo", async () => {
     const payload = validCreatePayload();
     const key = randomUUID();
@@ -146,10 +126,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(rows).toHaveLength(1);
   });
 
-  // Etapa 02 · C4.a — Dado um `POST /heroes` já respondido com a
-  // `Idempotency-Key` X, quando se chama `POST /heroes` de novo com X mas
-  // um corpo diferente, então a resposta é 422 com
-  // `error.code = "IDEMPOTENCY_KEY_MISMATCH"`.
   it("devolve 422 IDEMPOTENCY_KEY_MISMATCH quando a mesma chave é reusada com corpo diferente", async () => {
     const key = randomUUID();
 
@@ -173,11 +149,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(body.error.code).toBe("IDEMPOTENCY_KEY_MISMATCH");
   });
 
-  // Etapa 02 · C5.a — Dado um corpo de criação com `id`, `created_at`,
-  // `updated_at`, `version` e `deleted_at` preenchidos arbitrariamente,
-  // quando se chama `POST /heroes`, então o herói criado ignora esses
-  // valores (novo `id` gerado pelo servidor, `version = 1`, `deleted_at`
-  // nulo).
   it("ignora id, created_at, updated_at, version e deleted_at enviados no corpo", async () => {
     const forgedId = randomUUID();
     const payload = validCreatePayload({
@@ -215,9 +186,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(rows[0]?.deleted_at).toBeNull();
   });
 
-  // Etapa 02 · C6.a — Dado um corpo com `nickname = "   "` (só espaços),
-  // quando se chama `POST /heroes`, então a resposta é 422 com
-  // `fields.nickname` preenchido.
   it("devolve 422 VALIDATION_ERROR com fields.nickname quando nickname tem só espaços", async () => {
     const response = await app.inject({
       method: "POST",
@@ -234,9 +202,6 @@ describe("POST /heroes (MySQL real via Testcontainers)", () => {
     expect(body.error.fields?.nickname).toBeTruthy();
   });
 
-  // Etapa 02 · C7.a — Dado um corpo com `date_of_birth` igual a uma data
-  // futura (UTC+14), quando se chama `POST /heroes`, então a resposta é
-  // 422 com `fields.date_of_birth` preenchido.
   it("devolve 422 VALIDATION_ERROR com fields.date_of_birth quando a data de nascimento é futura", async () => {
     const response = await app.inject({
       method: "POST",

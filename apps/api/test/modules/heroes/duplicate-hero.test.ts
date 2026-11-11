@@ -6,13 +6,6 @@ import { heroes } from "../../../src/db/schema/heroes.js";
 import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-// Contrato assumido para esta etapa (ainda não implementado):
-// - O índice único `(name, nickname, date_of_birth)` já existe no schema.
-//   O repository de heróis ainda não traduz o erro de chave duplicada do
-//   MySQL para `DUPLICATE_HERO` (409), nem na criação (`POST /heroes`) nem
-//   na edição (`PATCH /heroes/:id`). Hoje esse erro provavelmente vira 500
-//   `INTERNAL_ERROR` (erro não tratado).
-
 type HeroBody = {
   id: string;
   name: string;
@@ -73,11 +66,6 @@ describe("Herói repetido: DUPLICATE_HERO (MySQL real via Testcontainers)", () =
     await testDatabase.db.delete(heroes);
   });
 
-  // Etapa 09 · C1.a — Dado um herói ativo com name = "Clark Kent",
-  // nickname = "Super-Homem", date_of_birth = "1938-04-18", quando se
-  // chama `POST /heroes` com esses mesmos três valores (os demais campos
-  // podem variar), então a resposta é 409 com
-  // `error.code = "DUPLICATE_HERO"`.
   it("devolve 409 DUPLICATE_HERO ao criar herói com name+nickname+date_of_birth iguais a um herói ativo", async () => {
     await createHero(app, {
       name: "Clark Kent",
@@ -103,10 +91,6 @@ describe("Herói repetido: DUPLICATE_HERO (MySQL real via Testcontainers)", () =
     expect(body.error.code).toBe("DUPLICATE_HERO");
   });
 
-  // Etapa 09 · C2.a — Dado um herói excluído (inserido direto no banco com
-  // deleted_at preenchido) com name/nickname/date_of_birth X, quando se
-  // chama `POST /heroes` com os mesmos três valores X, então a resposta é
-  // 409 com `error.code = "DUPLICATE_HERO"`.
   it("devolve 409 DUPLICATE_HERO ao criar herói com name+nickname+date_of_birth iguais a um herói excluído", async () => {
     const id = randomUUID();
     const now = new Date();
@@ -142,11 +126,6 @@ describe("Herói repetido: DUPLICATE_HERO (MySQL real via Testcontainers)", () =
     expect(body.error.code).toBe("DUPLICATE_HERO");
   });
 
-  // Etapa 09 · C3.a — Dados dois heróis A e B distintos, quando se chama
-  // `PATCH /heroes/:idB` alterando name/nickname/date_of_birth de B para os
-  // mesmos valores de A, então a resposta é 409 com
-  // `error.code = "DUPLICATE_HERO"`, e os dados de B não são alterados
-  // (continuam com o name, nickname, date_of_birth e version originais).
   it("devolve 409 DUPLICATE_HERO ao editar um herói para colidir com outro, sem alterar o herói editado", async () => {
     const heroA = await createHero(app, {
       name: "Diana Prince",
