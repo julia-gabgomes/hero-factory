@@ -18,5 +18,4 @@ describe("limits", () => {
     expect(limits.avatar_url).toBe(2048);
     expect(limits.mission.title).toBe(120);
   });
-
 });

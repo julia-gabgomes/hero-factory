@@ -5,12 +5,29 @@
   "type": "module",
   "main": "src/server.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:reset": "pnpm run db:migrate && pnpm run db:seed"
   },
   "dependencies": {
-    "@hero-factory/shared": "workspace:*"
+    "@hero-factory/shared": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "fastify": "5.12.8",
+    "fastify-type-provider-zod": "7.0.0",
+    "mysql2": "3.24.6",
+    "uuid": "14.0.3",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "drizzle-kit": "0.31.11",
+    "vitest": "5.1.0",
+    "testcontainers": "12.2.1",
+    "@testcontainers/mysql": "12.2.1",
+    "dotenv": "18.0.10",
+    "tsx": "4.23.15"
   }
 }

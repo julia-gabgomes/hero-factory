@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { limits } from "../limits.js";
 import { isFutureUtcPlus14 } from "../dates/not-future.js";
+import { MISSION_STATUSES } from "../domain/mission-status.js";
 import { codePointLength, requiredText } from "./text.js";
 
 const avatarUrlPrefixes = ["http://", "https://", "/uploads/"];
@@ -29,7 +30,11 @@ function optionalAvatarUrl(max: number) {
 }
 
 function isValidCalendarDate(value: string): boolean {
-  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
+  const [year, month, day] = value.split("-").map(Number) as [
+    number,
+    number,
+    number,
+  ];
   const date = new Date(Date.UTC(year, month - 1, day));
 
   return (
@@ -63,3 +68,63 @@ export const updateHeroSchema = createHeroSchema.partial().extend({
 });
 
 export type UpdateHeroInput = z.infer<typeof updateHeroSchema>;
+
+export const heroResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  nickname: z.string(),
+  universe: z.string(),
+  main_power: z.string(),
+  date_of_birth: z.string(),
+  avatar_url: z.string().nullable(),
+  is_active: z.boolean(),
+  deleted_at: z.string().nullable(),
+  version: z.number().int(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type HeroResponse = z.infer<typeof heroResponseSchema>;
+
+export const heroChangeEventSchema = z.enum([
+  "created",
+  "updated",
+  "activated",
+  "inactivated",
+  "deleted",
+]);
+
+export type HeroChangeEvent = z.infer<typeof heroChangeEventSchema>;
+
+export const heroChangeSchema = z.object({
+  event: heroChangeEventSchema,
+  field: z.string().nullable(),
+  old_value: z.string().nullable(),
+  new_value: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export type HeroChange = z.infer<typeof heroChangeSchema>;
+
+export const listHeroesQuerySchema = z.object({
+  q: z.string().optional(),
+  cursor: z.string().optional(),
+});
+
+export type ListHeroesQuery = z.infer<typeof listHeroesQuerySchema>;
+
+export const heroHistoryQuerySchema = z.object({
+  field: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  cursor: z.string().optional(),
+});
+
+export type HeroHistoryQuery = z.infer<typeof heroHistoryQuerySchema>;
+
+export const heroMissionsQuerySchema = z.object({
+  status: z.enum(MISSION_STATUSES).optional(),
+  cursor: z.string().optional(),
+});
+
+export type HeroMissionsQuery = z.infer<typeof heroMissionsQuerySchema>;
