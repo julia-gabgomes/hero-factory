@@ -1,4 +1,8 @@
-import type { HeroMissionsQuery, ListHeroesQuery } from "@hero-factory/shared";
+import type {
+  HeroMissionsQuery,
+  ListHeroesQuery,
+  ListMissionsQuery,
+} from "@hero-factory/shared";
 
 export const heroKeys = {
   all: ["heroes"] as const,
@@ -15,7 +19,7 @@ export const heroKeys = {
 export const missionKeys = {
   all: ["missions"] as const,
   lists: () => [...missionKeys.all, "list"] as const,
-  list: (params: { cursor?: string }) =>
+  list: (params: ListMissionsQuery) =>
     [...missionKeys.lists(), params] as const,
   details: () => [...missionKeys.all, "detail"] as const,
   detail: (id: string) => [...missionKeys.details(), id] as const,

@@ -1,22 +1,14 @@
 import type { MissionStatus } from "@hero-factory/shared";
-import { Badge, type BadgeProps } from "../../../components/ui/badge.js";
-
-const STATUS_LABELS: Record<MissionStatus, string> = {
-  scheduled: "Agendada",
-  in_progress: "Em andamento",
-  succeeded: "Sucesso",
-  failed: "Fracasso",
-  cancelled: "Cancelada",
-};
-
-const STATUS_TONES: Record<MissionStatus, NonNullable<BadgeProps["tone"]>> = {
-  scheduled: "neutral",
-  in_progress: "primary",
-  succeeded: "success",
-  failed: "danger",
-  cancelled: "neutral",
-};
+import { Badge } from "../../../components/ui/badge.js";
+import {
+  MISSION_STATUS_LABELS,
+  MISSION_STATUS_TONES,
+} from "../mission-status-labels.js";
 
 export function MissionStatusBadge({ status }: { status: MissionStatus }) {
-  return <Badge tone={STATUS_TONES[status]}>{STATUS_LABELS[status]}</Badge>;
+  return (
+    <Badge tone={MISSION_STATUS_TONES[status]}>
+      {MISSION_STATUS_LABELS[status]}
+    </Badge>
+  );
 }

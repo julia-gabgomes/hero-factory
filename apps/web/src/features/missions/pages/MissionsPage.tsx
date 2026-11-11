@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { listMissionsQuerySchema } from "@hero-factory/shared";
+import {
+  listMissionsQuerySchema,
+  type MissionStatus,
+} from "@hero-factory/shared";
 import { Plus } from "lucide-react";
 import { z } from "zod";
 import { Button } from "../../../components/ui/button.js";
@@ -9,6 +12,7 @@ import { useMissionsQuery } from "../api.js";
 import { MissionDetailsDialog } from "../components/MissionDetailsDialog.js";
 import { MissionFormDialog } from "../components/MissionFormDialog.js";
 import { MissionList } from "../components/MissionList.js";
+import { MissionStatusFilter } from "../components/MissionStatusFilter.js";
 
 const pageSearchSchema = listMissionsQuerySchema.extend({
   mission: z.string().optional(),
@@ -20,7 +24,15 @@ export function MissionsPage() {
   const page = cursorStack.length + 1;
   const [isCreateOpen, setCreateOpen] = useState(false);
 
-  const missionsQuery = useMissionsQuery({ cursor: search.cursor });
+  const missionsQuery = useMissionsQuery({
+    cursor: search.cursor,
+    status: search.status,
+  });
+
+  function runStatusChange(next: MissionStatus[]) {
+    setSearch({ status: next, cursor: undefined });
+    setCursorStack([]);
+  }
 
   function goNext() {
     const nextCursor = missionsQuery.data?.next_cursor;
@@ -50,6 +62,11 @@ export function MissionsPage() {
           Criar
         </Button>
       </div>
+
+      <MissionStatusFilter
+        value={search.status ?? []}
+        onChange={runStatusChange}
+      />
 
       <MissionList
         data={missionsQuery.data}

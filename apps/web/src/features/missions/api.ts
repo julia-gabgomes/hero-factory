@@ -23,7 +23,7 @@ export function useMissionsQuery(params: ListMissionsQuery) {
     queryFn: ({ signal }) =>
       apiClient.get<MissionPage>(
         "/missions",
-        { cursor: params.cursor },
+        { cursor: params.cursor, status: params.status },
         signal,
       ),
   });
