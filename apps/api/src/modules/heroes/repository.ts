@@ -289,7 +289,7 @@ export interface HeroChangeRow {
   created_at: Date;
 }
 
-export const HISTORY_PAGE_SIZE = 10;
+export const HISTORY_PAGE_SIZE = 5;
 
 export interface ListHeroHistoryParams {
   heroId: string;

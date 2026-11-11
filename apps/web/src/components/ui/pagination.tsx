@@ -7,6 +7,9 @@ export interface PaginationProps {
   hasNext: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  // "floating" ancora no canto inferior direito da viewport (páginas de
+  // lista). "inline" segue o fluxo normal, para usos dentro de um modal.
+  variant?: "floating" | "inline";
 }
 
 // Cursor opaco por baixo: só dá pra andar uma página por vez (não existe
@@ -18,11 +21,17 @@ export function Pagination({
   hasNext,
   onPrevious,
   onNext,
+  variant = "floating",
 }: PaginationProps) {
   return (
     <nav
       aria-label="Paginação"
-      className="fixed bottom-6 right-6 z-20 flex items-center gap-1.5 rounded-full bg-white px-2 py-1.5 shadow-md"
+      className={cn(
+        "flex items-center gap-1.5",
+        variant === "floating"
+          ? "fixed bottom-6 right-6 z-20 rounded-full bg-white px-2 py-1.5 shadow-md"
+          : "justify-end",
+      )}
     >
       <button
         type="button"
