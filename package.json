@@ -8,6 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @hero-factory/api exec tsx watch src/server.ts\" \"pnpm --filter @hero-factory/web dev\"",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "@tanstack/eslint-plugin-query": "5.107.1",
+    "concurrently": "10.0.7",
     "eslint": "9.39.5",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-jsx-a11y": "6.10.2",

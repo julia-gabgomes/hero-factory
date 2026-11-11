@@ -58,18 +58,14 @@ A API fica atrás do Nginx em `/api/*` (ex.: `http://localhost/api/heroes`).
 ```bash
 pnpm install
 docker compose up -d mysql
-pnpm --filter @hero-factory/api run db:migrate
-pnpm --filter @hero-factory/api exec tsx watch src/server.ts
+pnpm db:migrate
+pnpm dev
 ```
 
-Em outro terminal, a tela com hot reload e proxy de `/api` para a API local:
-
-```bash
-pnpm --filter @hero-factory/web dev
-```
-
-Abra `http://localhost:5173`. A API local lê `DATABASE_URL` do `.env` da
-raiz (aponta para o MySQL do compose publicado em `MYSQL_PORT`).
+`pnpm dev` sobe a API (`tsx watch`) e a tela (Vite, com proxy de `/api` para
+a API local) juntas, com logs prefixados por `[api]`/`[web]`. Abra
+`http://localhost:5173`. A API local lê `DATABASE_URL` do `.env` da raiz
+(aponta para o MySQL do compose publicado em `MYSQL_PORT`).
 
 ## Comandos
 
@@ -79,12 +75,12 @@ raiz (aponta para o MySQL do compose publicado em `MYSQL_PORT`).
 | Subir com o seed de 100k | `SEED_ON_START=true docker compose up --build` |
 | Derrubar e apagar os dados | `docker compose down -v` |
 | Instalar dependências | `pnpm install` |
+| Dev local (hot reload, API + web) | `pnpm dev` |
 | Lint | `pnpm lint` |
 | Checagem de tipos | `pnpm typecheck` |
 | Formatar | `pnpm format` |
 | Testes (unitários e de integração, exige Docker) | `pnpm test` |
 | Testes de um pacote | `pnpm --filter @hero-factory/api test` / `pnpm --filter @hero-factory/web test` / `pnpm --filter @hero-factory/shared test` |
-| Dev da tela (hot reload, proxy de `/api`) | `pnpm --filter @hero-factory/web dev` |
 | Gerar migration a partir do schema | `pnpm db:generate` |
 | Aplicar migrations | `pnpm db:migrate` |
 | Seed (idempotente) | `pnpm db:seed` |
@@ -108,6 +104,7 @@ hero-factory/
 ├─ bench/           script k6 (heroes.js)
 ├─ nginx/           nginx.conf · Dockerfile (builda e serve a SPA)
 ├─ docs/            performance.md · decisions.md
+├─ scripts/         verificação de infra (compose, lint/format, nginx, workspace)
 ├─ docker-compose.yml
 ├─ Dockerfile        imagem da API (migrate/api1/api2)
 ├─ .env.example
