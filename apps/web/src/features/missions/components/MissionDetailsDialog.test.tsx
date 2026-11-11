@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
 import {
@@ -113,6 +113,110 @@ describe("MissionDetailsDialog - ações por situação", () => {
       ).not.toBeInTheDocument();
     },
   );
+});
+
+describe("MissionDetailsDialog - confirmação antes de cancelar/encerrar", () => {
+  it("cancelar pede confirmação e só chama a API depois de confirmar", async () => {
+    const cancelSpy = vi.fn();
+    server.use(
+      missionHandler(buildMissionFixture({ status: "scheduled" })),
+      http.post("/api/missions/:id/cancel", () => {
+        cancelSpy();
+        return HttpResponse.json(buildMissionFixture({ status: "cancelled" }));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderDialog();
+
+    await screen.findByText("Resgate no centro");
+    await user.click(screen.getByRole("button", { name: "Cancelar missão" }));
+
+    expect(
+      await screen.findByText(
+        /Cancelar a missão "Resgate no centro"\? Essa ação não pode ser desfeita\./,
+      ),
+    ).toBeInTheDocument();
+    expect(cancelSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(cancelSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar missão" }));
+    await user.click(screen.getByRole("button", { name: "Sim, cancelar" }));
+
+    await waitFor(() => {
+      expect(cancelSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("encerrar com sucesso pede confirmação e só chama a API depois de confirmar", async () => {
+    const finishSpy = vi.fn();
+    server.use(
+      missionHandler(buildMissionFixture({ status: "in_progress" })),
+      http.post("/api/missions/:id/finish", async ({ request }) => {
+        const body = (await request.json()) as { outcome: string };
+        finishSpy(body.outcome);
+        return HttpResponse.json(
+          buildMissionFixture({ status: "succeeded" }),
+        );
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderDialog();
+
+    await screen.findByText("Resgate no centro");
+    await user.click(
+      screen.getByRole("button", { name: "Encerrar com sucesso" }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Encerrar a missão "Resgate no centro" com sucesso\? Essa ação não pode ser desfeita\./,
+      ),
+    ).toBeInTheDocument();
+    expect(finishSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Encerrar" }));
+
+    await waitFor(() => {
+      expect(finishSpy).toHaveBeenCalledWith("succeeded");
+    });
+  });
+
+  it("encerrar com fracasso pede confirmação antes de chamar a API", async () => {
+    const finishSpy = vi.fn();
+    server.use(
+      missionHandler(buildMissionFixture({ status: "in_progress" })),
+      http.post("/api/missions/:id/finish", async ({ request }) => {
+        const body = (await request.json()) as { outcome: string };
+        finishSpy(body.outcome);
+        return HttpResponse.json(buildMissionFixture({ status: "failed" }));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderDialog();
+
+    await screen.findByText("Resgate no centro");
+    await user.click(
+      screen.getByRole("button", { name: "Encerrar com fracasso" }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Encerrar a missão "Resgate no centro" com fracasso\? Essa ação não pode ser desfeita\./,
+      ),
+    ).toBeInTheDocument();
+    expect(finishSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Encerrar" }));
+
+    await waitFor(() => {
+      expect(finishSpy).toHaveBeenCalledWith("failed");
+    });
+  });
 });
 
 describe("MissionDetailsDialog - heróis escalados e escalar herói", () => {

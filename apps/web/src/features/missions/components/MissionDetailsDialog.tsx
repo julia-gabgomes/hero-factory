@@ -1,5 +1,7 @@
 import { useState } from "react";
+import type { FinishMissionInput } from "@hero-factory/shared";
 import { Calendar, CircleX, Search, UserPlus, X } from "lucide-react";
+import { ConfirmDialog } from "../../../components/ui/alert-dialog.js";
 import { Button } from "../../../components/ui/button.js";
 import {
   Dialog,
@@ -30,6 +32,10 @@ export interface MissionDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type PendingAction =
+  | { type: "cancel" }
+  | { type: "finish"; outcome: FinishMissionInput["outcome"] };
+
 export function MissionDetailsDialog({
   missionId,
   open,
@@ -44,6 +50,10 @@ export function MissionDetailsDialog({
   const [heroSearch, setHeroSearch] = useState("");
   const heroesQuery = useHeroesQuery({ q: heroSearch || undefined });
   const assignHero = useAssignHero();
+
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+    null,
+  );
 
   const mission = missionQuery.data;
   const isScheduled = mission?.status === "scheduled";
@@ -93,8 +103,8 @@ export function MissionDetailsDialog({
                         shape="pill"
                         disabled={finishMission.isPending}
                         onClick={() => {
-                          finishMission.mutate({
-                            id: mission.id,
+                          setPendingAction({
+                            type: "finish",
                             outcome: "succeeded",
                           });
                         }}
@@ -106,8 +116,8 @@ export function MissionDetailsDialog({
                         shape="pill"
                         disabled={finishMission.isPending}
                         onClick={() => {
-                          finishMission.mutate({
-                            id: mission.id,
+                          setPendingAction({
+                            type: "finish",
                             outcome: "failed",
                           });
                         }}
@@ -120,7 +130,7 @@ export function MissionDetailsDialog({
                     type="button"
                     disabled={cancelMission.isPending}
                     onClick={() => {
-                      cancelMission.mutate(mission.id);
+                      setPendingAction({ type: "cancel" });
                     }}
                     className="flex items-center gap-1.5 text-sm font-medium text-danger hover:underline disabled:pointer-events-none disabled:opacity-50"
                   >
@@ -254,6 +264,44 @@ export function MissionDetailsDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPendingAction(null);
+        }}
+        title={
+          pendingAction?.type === "cancel"
+            ? "Cancelar missão"
+            : pendingAction?.outcome === "succeeded"
+              ? "Encerrar com sucesso"
+              : "Encerrar com fracasso"
+        }
+        description={
+          pendingAction?.type === "cancel"
+            ? `Cancelar a missão "${mission?.title ?? ""}"? Essa ação não pode ser desfeita.`
+            : pendingAction?.outcome === "succeeded"
+              ? `Encerrar a missão "${mission?.title ?? ""}" com sucesso? Essa ação não pode ser desfeita.`
+              : `Encerrar a missão "${mission?.title ?? ""}" com fracasso? Essa ação não pode ser desfeita.`
+        }
+        confirmLabel={
+          pendingAction?.type === "cancel" ? "Sim, cancelar" : "Encerrar"
+        }
+        confirmVariant={pendingAction?.type === "cancel" ? "outline" : "solid"}
+        isConfirming={cancelMission.isPending || finishMission.isPending}
+        onConfirm={() => {
+          if (!pendingAction || !mission) return;
+          if (pendingAction.type === "cancel") {
+            cancelMission.mutate(mission.id, {
+              onSettled: () => setPendingAction(null),
+            });
+          } else {
+            finishMission.mutate(
+              { id: mission.id, outcome: pendingAction.outcome },
+              { onSettled: () => setPendingAction(null) },
+            );
+          }
+        }}
+      />
     </Dialog>
   );
 }
