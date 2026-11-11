@@ -63,6 +63,15 @@ export const missionDetailSchema = missionResponseSchema.extend({
 
 export type MissionDetail = z.infer<typeof missionDetailSchema>;
 
+export const missionListItemSchema = missionResponseSchema.extend({
+  assigned_heroes: z.array(
+    z.object({ id: z.string(), nickname: z.string() }),
+  ),
+  assigned_heroes_total: z.number().int().nonnegative(),
+});
+
+export type MissionListItem = z.infer<typeof missionListItemSchema>;
+
 export const missionStatusListSchema = z.preprocess((value) => {
   if (value === undefined || value === null || value === "") {
     return undefined;

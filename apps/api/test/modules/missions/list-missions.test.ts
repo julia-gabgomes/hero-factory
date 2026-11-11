@@ -8,9 +8,13 @@ import { missionHeroes } from "../../../src/db/schema/mission_heroes.js";
 import { missions } from "../../../src/db/schema/missions.js";
 import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
 
-type HeroBody = { id: string };
+type HeroBody = { id: string; nickname: string };
 type MissionBody = { id: string; title: string; status: string };
-type MissionsPage = { data: MissionBody[]; next_cursor: string | null };
+type MissionListItemBody = MissionBody & {
+  assigned_heroes: { id: string; nickname: string }[];
+  assigned_heroes_total: number;
+};
+type MissionsPage = { data: MissionListItemBody[]; next_cursor: string | null };
 type ErrorBody = { error: { code: string; fields: Record<string, string> | null } };
 
 function heroPayload(): Record<string, unknown> {
@@ -222,5 +226,41 @@ describe("GET /missions (MySQL real via Testcontainers)", () => {
     const secondBody = secondPage.json<MissionsPage>();
     expect(secondBody.data).toHaveLength(1);
     expect(secondBody.data[0]?.status).toBe("scheduled");
+  });
+
+  it("traz uma missão sem herói escalado com assigned_heroes vazio e total 0", async () => {
+    const mission = await createMission(app);
+
+    const response = await app.inject({ method: "GET", url: "/missions" });
+    expect(response.statusCode).toBe(200);
+    const page = response.json<MissionsPage>();
+    const item = page.data.find((entry) => entry.id === mission.id);
+
+    expect(item?.assigned_heroes).toEqual([]);
+    expect(item?.assigned_heroes_total).toBe(0);
+  });
+
+  it("traz os heróis escalados (até o limite da prévia) e o total correto quando há mais que isso", async () => {
+    const mission = await createMission(app);
+    const heroesList: HeroBody[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const hero = await createHero(app);
+      await assignHero(app, mission.id, hero.id);
+      heroesList.push(hero);
+    }
+
+    const response = await app.inject({ method: "GET", url: "/missions" });
+    expect(response.statusCode).toBe(200);
+    const page = response.json<MissionsPage>();
+    const item = page.data.find((entry) => entry.id === mission.id);
+
+    expect(item?.assigned_heroes_total).toBe(4);
+    expect(item?.assigned_heroes).toHaveLength(3);
+    const previewIds = item?.assigned_heroes.map((hero) => hero.id) ?? [];
+    expect(
+      previewIds.every((id) =>
+        heroesList.some((hero) => hero.id === id),
+      ),
+    ).toBe(true);
   });
 });
