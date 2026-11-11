@@ -6,12 +6,12 @@ import {
   type CursorPage,
   type ListMissionsQuery,
   type MissionDetail,
-  missionResponseSchema,
+  missionListItemSchema,
 } from "@hero-factory/shared";
 import { ApiError, apiClient } from "../../lib/api-client.js";
 import { missionKeys } from "../../lib/query-keys.js";
 
-export type MissionPage = CursorPage<typeof missionResponseSchema>;
+export type MissionPage = CursorPage<typeof missionListItemSchema>;
 
 function genericErrorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
@@ -127,6 +127,7 @@ export function useAssignHero() {
         params.body,
       ),
     onSuccess: (mission) => {
+      void queryClient.invalidateQueries({ queryKey: missionKeys.lists() });
       void queryClient.invalidateQueries({
         queryKey: missionKeys.detail(mission.id),
       });
@@ -148,6 +149,7 @@ export function useUnassignHero() {
         `/missions/${params.missionId}/heroes/${params.heroId}`,
       ),
     onSuccess: (mission) => {
+      void queryClient.invalidateQueries({ queryKey: missionKeys.lists() });
       void queryClient.invalidateQueries({
         queryKey: missionKeys.detail(mission.id),
       });

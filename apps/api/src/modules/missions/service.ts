@@ -17,6 +17,7 @@ import {
   findMissionById,
   insertMission,
   listAssignedHeroes,
+  listAssignedHeroesPreview,
   listMissions,
   updateMissionStatus,
   type MissionResponse,
@@ -76,8 +77,13 @@ export async function createMission(
   };
 }
 
+export interface MissionListItem extends MissionResponse {
+  assigned_heroes: { id: string; nickname: string }[];
+  assigned_heroes_total: number;
+}
+
 export interface MissionPage {
-  data: MissionResponse[];
+  data: MissionListItem[];
   next_cursor: string | null;
   prev_cursor: string | null;
 }
@@ -106,13 +112,27 @@ export async function listMissionsPage(
   });
 
   const hasNextPage = rows.length > LIST_PAGE_SIZE;
-  const data = hasNextPage ? rows.slice(0, LIST_PAGE_SIZE) : rows;
-  const lastMission = data.at(-1);
+  const pageRows = hasNextPage ? rows.slice(0, LIST_PAGE_SIZE) : rows;
+  const lastMission = pageRows.at(-1);
 
   const next_cursor =
     hasNextPage && lastMission !== undefined
       ? encodeCursor({ created_at: lastMission.created_at, id: lastMission.id })
       : null;
+
+  const heroPreviews = await listAssignedHeroesPreview(
+    db,
+    pageRows.map((mission) => mission.id),
+  );
+
+  const data = pageRows.map((mission) => {
+    const preview = heroPreviews[mission.id];
+    return {
+      ...mission,
+      assigned_heroes: preview?.heroes ?? [],
+      assigned_heroes_total: preview?.total ?? 0,
+    };
+  });
 
   return { data, next_cursor, prev_cursor: null };
 }

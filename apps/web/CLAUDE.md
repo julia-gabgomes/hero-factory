@@ -52,7 +52,8 @@ Tokens no `@theme` do Tailwind:
   - Para herói inativo, o menu mostra só o *switch* (desligado) e a lixeira, sem o lápis.
 - **Herói inativo:** card com `grayscale opacity-60`.
 - **Paginação:** "‹ Página N ›" no canto inferior direito, no estilo dos quadradinhos da referência.
-- **Telas sem referência** (missões, importação, histórico) seguem os mesmos tokens e componentes. A situação da missão aparece em badges arredondados.
+- **Missões:** cabeçalho estilo painel (título à esquerda, botão "Criar missão" à direita), diferente do título centralizado de Heróis — decisão registrada em `docs/decisions.md`. Chips de situação multi-seleção com marcador colorido por situação (sem contagem). Cards com badge (marcador colorido + rótulo) e "⋮" de ações rápidas (Iniciar, Encerrar com sucesso/fracasso, Cancelar — só para `scheduled`/`in_progress`), período com ícone de calendário, e um empilhado de avatares com iniciais coloridas dos heróis escalados (ou "Nenhum herói escalado").
+- **Telas sem referência** (importação, histórico) seguem os mesmos tokens e componentes.
 - Deve funcionar de **320 px a 1920 px**, com nomes longos.
 
 ## Estados de tela

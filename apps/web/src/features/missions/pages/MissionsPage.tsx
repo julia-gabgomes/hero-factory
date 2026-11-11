@@ -49,9 +49,9 @@ export function MissionsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-center text-4xl font-bold text-primary">Missões</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-4xl font-bold text-primary">Missões</h1>
 
-      <div>
         <Button
           shape="pill"
           onClick={() => {
@@ -59,7 +59,7 @@ export function MissionsPage() {
           }}
         >
           <Plus className="size-4" aria-hidden="true" />
-          Criar
+          Criar missão
         </Button>
       </div>
 

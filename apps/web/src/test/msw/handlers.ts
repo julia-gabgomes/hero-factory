@@ -1,5 +1,9 @@
 import { HttpResponse, http } from "msw";
-import { buildHeroFixture, buildMissionFixture } from "./fixtures.js";
+import {
+  buildHeroFixture,
+  buildMissionFixture,
+  buildMissionListItemFixture,
+} from "./fixtures.js";
 
 function errorEnvelope(
   code: string,
@@ -110,7 +114,7 @@ export const handlers = [
 
   http.get("/api/missions", () => {
     return HttpResponse.json({
-      data: [buildMissionFixture()],
+      data: [buildMissionListItemFixture()],
       next_cursor: null,
       prev_cursor: null,
     });

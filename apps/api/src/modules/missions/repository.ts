@@ -225,6 +225,49 @@ export async function listAssignedHeroes(
   return rows.map((row) => mapRowToHeroResponse(row));
 }
 
+export interface AssignedHeroPreview {
+  id: string;
+  nickname: string;
+}
+
+export interface AssignedHeroesPreviewResult {
+  heroes: AssignedHeroPreview[];
+  total: number;
+}
+
+export async function listAssignedHeroesPreview(
+  db: Database,
+  missionIds: string[],
+  previewLimit = 3,
+): Promise<Record<string, AssignedHeroesPreviewResult>> {
+  if (missionIds.length === 0) {
+    return {};
+  }
+
+  const rows = await db
+    .select({
+      mission_id: missionHeroes.mission_id,
+      id: heroes.id,
+      nickname: heroes.nickname,
+    })
+    .from(missionHeroes)
+    .innerJoin(heroes, eq(heroes.id, missionHeroes.hero_id))
+    .where(inArray(missionHeroes.mission_id, missionIds))
+    .orderBy(heroes.nickname, heroes.id);
+
+  const result: Record<string, AssignedHeroesPreviewResult> = {};
+
+  for (const row of rows) {
+    const entry = (result[row.mission_id] ??= { heroes: [], total: 0 });
+    entry.total += 1;
+    if (entry.heroes.length < previewLimit) {
+      entry.heroes.push({ id: row.id, nickname: row.nickname });
+    }
+  }
+
+  return result;
+}
+
 export const LIST_PAGE_SIZE = 10;
 
 export interface ListMissionsParams {

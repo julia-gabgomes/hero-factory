@@ -2,13 +2,15 @@ import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
-import { buildMissionFixture } from "../../../test/msw/fixtures.js";
+import { buildMissionListItemFixture } from "../../../test/msw/fixtures.js";
 import { server } from "../../../test/msw/server.js";
 import { renderWithProviders } from "../../../test/render.js";
 import { MissionsPage } from "./MissionsPage.js";
 
 function missionsHandler(
-  responder: (url: URL) => { data: ReturnType<typeof buildMissionFixture>[] },
+  responder: (url: URL) => {
+    data: ReturnType<typeof buildMissionListItemFixture>[];
+  },
 ) {
   return http.get("/api/missions", ({ request }) => {
     const url = new URL(request.url);
@@ -38,7 +40,7 @@ describe("MissionsPage - estados da lista", () => {
           );
         }
         return HttpResponse.json({
-          data: [buildMissionFixture()],
+          data: [buildMissionListItemFixture()],
           next_cursor: null,
           prev_cursor: null,
         });
@@ -83,7 +85,7 @@ describe("MissionsPage - filtro de situação", () => {
     server.use(
       missionsHandler((url) => {
         lastStatus = url.searchParams.get("status");
-        return { data: [buildMissionFixture()] };
+        return { data: [buildMissionListItemFixture()] };
       }),
     );
 
@@ -108,7 +110,7 @@ describe("MissionsPage - filtro de situação", () => {
     server.use(
       missionsHandler((url) => {
         lastStatus = url.searchParams.get("status");
-        return { data: [buildMissionFixture()] };
+        return { data: [buildMissionListItemFixture()] };
       }),
     );
 
@@ -130,7 +132,7 @@ describe("MissionsPage - filtro de situação", () => {
     server.use(
       missionsHandler((url) => {
         lastStatus = url.searchParams.get("status");
-        return { data: [buildMissionFixture()] };
+        return { data: [buildMissionListItemFixture()] };
       }),
     );
 
@@ -157,7 +159,7 @@ describe("MissionsPage - filtro de situação", () => {
     server.use(
       missionsHandler((url) => {
         lastStatus = url.searchParams.get("status");
-        return { data: [buildMissionFixture({ status: "failed" })] };
+        return { data: [buildMissionListItemFixture({ status: "failed" })] };
       }),
     );
 
