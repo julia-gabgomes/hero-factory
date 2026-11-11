@@ -22,7 +22,7 @@ export function Pagination({
   return (
     <nav
       aria-label="Paginação"
-      className="flex items-center justify-end gap-1.5"
+      className="fixed bottom-6 right-6 z-20 flex items-center gap-1.5 rounded-full bg-white px-2 py-1.5 shadow-md"
     >
       <button
         type="button"
