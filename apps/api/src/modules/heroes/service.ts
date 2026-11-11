@@ -25,6 +25,8 @@ import {
   type HeroChangeInput,
 } from "./history.js";
 import {
+  countHeroHistoryTotal,
+  getHeroHistoryFieldTotals,
   HISTORY_PAGE_SIZE,
   LIST_PAGE_SIZE,
   deleteHeroWithOptimisticLock,
@@ -294,6 +296,8 @@ export interface HeroHistoryPage {
   data: HeroHistoryItem[];
   next_cursor: string | null;
   prev_cursor: string | null;
+  total: number;
+  field_totals: Record<string, number>;
 }
 
 export async function getHeroHistoryPage(
@@ -309,14 +313,21 @@ export async function getHeroHistoryPage(
     throw badRequest("O cursor de paginação é inválido.");
   }
 
-  const rows = await listHeroHistory(db, {
-    heroId,
-    field,
-    from: from !== undefined ? new Date(from) : undefined,
-    to: to !== undefined ? new Date(to) : undefined,
-    cursor: decodedCursor ?? undefined,
-    limit: HISTORY_PAGE_SIZE + 1,
-  });
+  const fromDate = from !== undefined ? new Date(from) : undefined;
+  const toDate = to !== undefined ? new Date(to) : undefined;
+
+  const [rows, total, field_totals] = await Promise.all([
+    listHeroHistory(db, {
+      heroId,
+      field,
+      from: fromDate,
+      to: toDate,
+      cursor: decodedCursor ?? undefined,
+      limit: HISTORY_PAGE_SIZE + 1,
+    }),
+    countHeroHistoryTotal(db, heroId),
+    getHeroHistoryFieldTotals(db, { heroId, from: fromDate, to: toDate }),
+  ]);
 
   const hasNextPage = rows.length > HISTORY_PAGE_SIZE;
   const data = hasNextPage ? rows.slice(0, HISTORY_PAGE_SIZE) : rows;
@@ -340,6 +351,8 @@ export async function getHeroHistoryPage(
     })),
     next_cursor,
     prev_cursor: null,
+    total,
+    field_totals,
   };
 }
 

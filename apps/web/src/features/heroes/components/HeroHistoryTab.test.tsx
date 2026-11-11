@@ -2,19 +2,32 @@ import type { HeroChange } from "@hero-factory/shared";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { dateTimeLocalToIsoUtc, todayAsDateInputValue } from "../../../lib/dates.js";
 import { buildHeroChangeFixture } from "../../../test/msw/fixtures.js";
 import { server } from "../../../test/msw/server.js";
 import { renderWithProviders } from "../../../test/render.js";
 import { HeroHistoryTab } from "./HeroHistoryTab.js";
 
-function historyHandler(
-  responder: (url: URL) => { data: HeroChange[]; next_cursor?: string | null },
-) {
+interface HistoryResponderResult {
+  data?: HeroChange[];
+  next_cursor?: string | null;
+  total?: number;
+  field_totals?: Record<string, number>;
+}
+
+function historyHandler(responder: (url: URL) => HistoryResponderResult) {
   return http.get("/api/heroes/:id/history", ({ request }) => {
     const url = new URL(request.url);
-    const { data, next_cursor = null } = responder(url);
-    return HttpResponse.json({ data, next_cursor, prev_cursor: null });
+    const result = responder(url);
+    const data = result.data ?? [];
+    return HttpResponse.json({
+      data,
+      next_cursor: result.next_cursor ?? null,
+      prev_cursor: null,
+      total: result.total ?? data.length,
+      field_totals: result.field_totals ?? {},
+    });
   });
 }
 
@@ -23,6 +36,8 @@ describe("HeroHistoryTab - estados", () => {
     server.use(
       historyHandler(() => ({
         data: [buildHeroChangeFixture()],
+        total: 1,
+        field_totals: { nickname: 1 },
       })),
     );
 
@@ -30,9 +45,10 @@ describe("HeroHistoryTab - estados", () => {
 
     expect(screen.getByRole("status")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("Alterado · Nome de guerra"),
-    ).toBeInTheDocument();
+    await screen.findByText("Alterado");
+    const item = within(screen.getByRole("listitem"));
+    expect(item.getByText("Alterado")).toBeInTheDocument();
+    expect(item.getByText("Nome de guerra")).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
@@ -56,6 +72,8 @@ describe("HeroHistoryTab - estados", () => {
           data: [buildHeroChangeFixture()],
           next_cursor: null,
           prev_cursor: null,
+          total: 1,
+          field_totals: { nickname: 1 },
         });
       }),
     );
@@ -70,13 +88,11 @@ describe("HeroHistoryTab - estados", () => {
     shouldFail = false;
     await user.click(screen.getByRole("button", { name: "Tentar de novo" }));
 
-    expect(
-      await screen.findByText("Alterado · Nome de guerra"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Alterado")).toBeInTheDocument();
   });
 
   it("mostra 'nenhuma alteração registrada' quando a lista vem vazia sem filtro", async () => {
-    server.use(historyHandler(() => ({ data: [] })));
+    server.use(historyHandler(() => ({ data: [], total: 0 })));
 
     renderWithProviders(<HeroHistoryTab heroId="hero-1" />);
 
@@ -86,20 +102,23 @@ describe("HeroHistoryTab - estados", () => {
   });
 
   it("mostra mensagem diferente quando o filtro não encontra nada", async () => {
-    server.use(historyHandler(() => ({ data: [] })));
+    server.use(
+      historyHandler(() => ({
+        data: [],
+        total: 0,
+        field_totals: { main_power: 0 },
+      })),
+    );
 
     const user = userEvent.setup();
     renderWithProviders(<HeroHistoryTab heroId="hero-1" />);
 
     await screen.findByText("Nenhuma alteração registrada ainda.");
 
-    await user.selectOptions(
-      screen.getByLabelText("Campo alterado"),
-      "main_power",
-    );
+    await user.click(screen.getByRole("button", { name: /Poderes/ }));
 
     expect(
-      await screen.findByText("Nenhuma alteração encontrada para esse filtro."),
+      await screen.findByText("Nenhuma alteração encontrada"),
     ).toBeInTheDocument();
   });
 });
@@ -116,11 +135,15 @@ describe("HeroHistoryTab - filtros", () => {
           return {
             data: [buildHeroChangeFixture({ new_value: "Página 1" })],
             next_cursor: "cursor-pagina-2",
+            total: 2,
+            field_totals: { nickname: 2 },
           };
         }
         return {
           data: [buildHeroChangeFixture({ new_value: "Página 2" })],
           next_cursor: null,
+          total: 2,
+          field_totals: { nickname: 2 },
         };
       }),
     );
@@ -134,10 +157,7 @@ describe("HeroHistoryTab - filtros", () => {
     await screen.findByText(/Página 2/);
     expect(lastCursor).toBe("cursor-pagina-2");
 
-    await user.selectOptions(
-      screen.getByLabelText("Campo alterado"),
-      "main_power",
-    );
+    await user.click(screen.getByRole("button", { name: /Poderes/ }));
 
     await waitFor(() => {
       expect(lastField).toBe("main_power");
@@ -145,29 +165,32 @@ describe("HeroHistoryTab - filtros", () => {
     expect(lastCursor).toBeNull();
   });
 
-  it("filtra por período convertendo para ISO (início e fim do dia local)", async () => {
+  it("filtra por período usando o atalho 'Hoje', convertendo para ISO (início e fim do dia local)", async () => {
     let lastFrom: string | null = null;
     let lastTo: string | null = null;
     server.use(
       historyHandler((url) => {
         lastFrom = url.searchParams.get("from");
         lastTo = url.searchParams.get("to");
-        return { data: [buildHeroChangeFixture()] };
+        return { data: [buildHeroChangeFixture()], total: 1 };
       }),
     );
 
     const user = userEvent.setup();
     renderWithProviders(<HeroHistoryTab heroId="hero-1" />);
-    await screen.findByText("Alterado · Nome de guerra");
+    await screen.findByText("Alterado");
 
-    await user.type(screen.getByLabelText("De"), "2024-05-01");
-    await user.type(screen.getByLabelText("Até"), "2024-05-02");
+    await user.click(screen.getByRole("button", { name: /Qualquer data/ }));
+    await user.click(await screen.findByRole("button", { name: "Hoje" }));
 
     await waitFor(() => {
       expect(lastFrom).not.toBeNull();
     });
-    expect(lastFrom).toBe(new Date("2024-05-01T00:00").toISOString());
-    expect(lastTo).toBe(new Date("2024-05-02T23:59:59.999").toISOString());
+
+    const today = todayAsDateInputValue();
+    expect(lastFrom).toBe(dateTimeLocalToIsoUtc(`${today}T00:00`));
+    expect(lastTo).toBe(dateTimeLocalToIsoUtc(`${today}T23:59:59.999`));
+    expect(screen.getByRole("button", { name: /Hoje/ })).toBeInTheDocument();
   });
 
   it("'Limpar filtros' remove os filtros e volta à página 1", async () => {
@@ -175,18 +198,19 @@ describe("HeroHistoryTab - filtros", () => {
     server.use(
       historyHandler((url) => {
         lastField = url.searchParams.get("field");
-        return { data: [buildHeroChangeFixture()] };
+        return {
+          data: [buildHeroChangeFixture()],
+          total: 1,
+          field_totals: { nickname: 1 },
+        };
       }),
     );
 
     const user = userEvent.setup();
     renderWithProviders(<HeroHistoryTab heroId="hero-1" />);
-    await screen.findByText("Alterado · Nome de guerra");
+    await screen.findByText("Alterado");
 
-    await user.selectOptions(
-      screen.getByLabelText("Campo alterado"),
-      "main_power",
-    );
+    await user.click(screen.getByRole("button", { name: /Poderes/ }));
     await waitFor(() => {
       expect(lastField).toBe("main_power");
     });

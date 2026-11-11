@@ -391,6 +391,71 @@ describe("Histórico de alterações de herói (MySQL real via Testcontainers)",
     expect(secondBody.next_cursor).toBeNull();
   });
 
+  // `total` reflete a contagem de todas as alterações do herói,
+  // independente do filtro de campo ou de período da consulta.
+  it("retorna o total de alterações independente dos filtros aplicados", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?field=nickname`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ total: number }>();
+
+    expect(body.total).toBe(4);
+  });
+
+  // `field_totals` reflete a contagem por campo respeitando o filtro de
+  // período, mas ignorando o filtro de campo da própria consulta (todos os
+  // chips precisam mostrar contagem mesmo com um campo selecionado).
+  it("retorna field_totals por campo, ignorando o filtro de campo da consulta", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?field=nickname`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ field_totals: Record<string, number> }>();
+
+    expect(body.field_totals).toEqual({
+      name: 1,
+      nickname: 2,
+      universe: 1,
+    });
+  });
+
+  // `field_totals` respeita o filtro de período (from/to), mudando a
+  // contagem por campo quando o período restringe quais linhas entram.
+  it("restringe field_totals ao período informado", async () => {
+    const created = await createHero(app);
+    await seedHistoryRows(created.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/heroes/${created.id}/history?from=${encodeURIComponent(
+        "2024-01-01T01:00:00.000Z",
+      )}&to=${encodeURIComponent("2024-01-01T05:00:00.000Z")}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      total: number;
+      field_totals: Record<string, number>;
+    }>();
+
+    expect(body.total).toBe(4);
+    expect(body.field_totals).toEqual({
+      nickname: 1,
+      universe: 1,
+    });
+  });
+
   // Etapa 10 · C6.a — Dado um herói com version = 2 (depois de um PATCH
   // válido a partir da version 1), quando se chama `PATCH /heroes/:id` com
   // version: 1 (desatualizada, resultando em 409), então nenhuma linha nova

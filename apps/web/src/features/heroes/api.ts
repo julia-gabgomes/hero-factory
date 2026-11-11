@@ -3,12 +3,12 @@ import { toast } from "sonner";
 import {
   type CreateHeroInput,
   type CursorPage,
+  type HeroHistoryPageResponse,
   type HeroHistoryQuery,
   type HeroMissionsQuery,
   type HeroResponse,
   type ListHeroesQuery,
   type UpdateHeroInput,
-  heroChangeSchema,
   heroResponseSchema,
   missionResponseSchema,
 } from "@hero-factory/shared";
@@ -16,7 +16,7 @@ import { ApiError, apiClient } from "../../lib/api-client.js";
 import { heroKeys } from "../../lib/query-keys.js";
 
 export type HeroPage = CursorPage<typeof heroResponseSchema>;
-export type HeroHistoryPage = CursorPage<typeof heroChangeSchema>;
+export type HeroHistoryPage = HeroHistoryPageResponse;
 export type HeroMissionsPage = CursorPage<typeof missionResponseSchema>;
 
 export function useHeroesQuery(params: ListHeroesQuery) {

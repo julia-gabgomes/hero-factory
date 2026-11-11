@@ -1,35 +1,26 @@
 import { useState } from "react";
-import { Button } from "../../../components/ui/button.js";
+import { ArrowRight } from "lucide-react";
+import { Badge } from "../../../components/ui/badge.js";
 import { EmptyState } from "../../../components/ui/empty-state.js";
 import { ErrorState } from "../../../components/ui/error-state.js";
-import { Input } from "../../../components/ui/input.js";
 import { LoadingState } from "../../../components/ui/loading-state.js";
 import { Pagination } from "../../../components/ui/pagination.js";
 import { dateTimeLocalToIsoUtc, formatDateTime } from "../../../lib/dates.js";
 import { useHeroHistoryQuery } from "../api.js";
-
-const FIELD_LABELS: Record<string, string> = {
-  name: "Nome completo",
-  nickname: "Nome de guerra",
-  universe: "Universo",
-  main_power: "Habilidade",
-  date_of_birth: "Data de nascimento",
-  avatar_url: "Avatar",
-  is_active: "Situação",
-  deleted_at: "Exclusão",
-};
-
-const EVENT_LABELS: Record<string, string> = {
-  updated: "Alterado",
-  activated: "Ativado",
-  inactivated: "Inativado",
-  deleted: "Excluído",
-};
+import {
+  EVENT_LABELS,
+  FIELD_LABELS,
+  HISTORY_EVENT_TONES,
+  formatHistoryValue,
+} from "../hero-history-labels.js";
+import { HeroHistoryFieldFilter } from "./HeroHistoryFieldFilter.js";
+import { HeroHistoryPeriodFilter } from "./HeroHistoryPeriodFilter.js";
 
 interface HistoryFilters {
   field?: string;
   from?: string;
   to?: string;
+  periodLabel?: string;
 }
 
 export function HeroHistoryTab({ heroId }: { heroId: string }) {
@@ -37,9 +28,7 @@ export function HeroHistoryTab({ heroId }: { heroId: string }) {
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const page = cursorStack.length + 1;
   const hasActiveFilters =
-    filters.field !== undefined ||
-    filters.from !== undefined ||
-    filters.to !== undefined;
+    filters.field !== undefined || filters.from !== undefined;
 
   const query = useHeroHistoryQuery(heroId, {
     cursor: cursorStack.at(-1),
@@ -85,65 +74,57 @@ export function HeroHistoryTab({ heroId }: { heroId: string }) {
     );
   }
 
+  const { total, field_totals } = query.data;
+  const filteredTotal =
+    filters.field !== undefined
+      ? (field_totals[filters.field] ?? 0)
+      : Object.values(field_totals).reduce((sum, count) => sum + count, 0);
+
   const filtersBar = (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:flex-wrap">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-gray-900">Campo alterado</span>
-        <select
-          value={filters.field ?? ""}
-          onChange={(event) => {
-            updateFilters({ field: event.target.value || undefined });
+    <div className="flex flex-col gap-4 rounded-2xl bg-gray-50 p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-semibold tracking-wide text-gray-400">
+          FILTRAR POR
+        </p>
+        <HeroHistoryPeriodFilter
+          from={filters.from}
+          to={filters.to}
+          presetLabel={filters.periodLabel}
+          onApply={(from, to, periodLabel) => {
+            updateFilters({ from, to, periodLabel });
           }}
-          className="rounded-full border border-border bg-white px-4 py-2 text-sm text-gray-900 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
-        >
-          <option value="">Todos os campos</option>
-          {Object.entries(FIELD_LABELS).map(([field, label]) => (
-            <option key={field} value={field}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label
-        htmlFor="history-filter-from"
-        className="flex flex-col gap-1 text-sm"
-      >
-        <span className="font-medium text-gray-900">De</span>
-        <Input
-          id="history-filter-from"
-          type="date"
-          value={filters.from ?? ""}
-          onChange={(event) => {
-            updateFilters({ from: event.target.value || undefined });
+          onClear={() => {
+            updateFilters({ from: undefined, to: undefined, periodLabel: undefined });
           }}
         />
-      </label>
+      </div>
 
-      <label
-        htmlFor="history-filter-to"
-        className="flex flex-col gap-1 text-sm"
-      >
-        <span className="font-medium text-gray-900">Até</span>
-        <Input
-          id="history-filter-to"
-          type="date"
-          value={filters.to ?? ""}
-          onChange={(event) => {
-            updateFilters({ to: event.target.value || undefined });
-          }}
-        />
-      </label>
+      <HeroHistoryFieldFilter
+        value={filters.field}
+        counts={field_totals}
+        onChange={(field) => {
+          updateFilters({ field });
+        }}
+      />
+    </div>
+  );
 
+  const summaryBar = (
+    <div className="flex items-center justify-between">
+      <p className="text-sm text-gray-600">
+        <span className="font-bold text-gray-900">{filteredTotal}</span>{" "}
+        {filteredTotal === total
+          ? "alterações"
+          : `alterações de ${String(total)}`}
+      </p>
       {hasActiveFilters ? (
-        <Button
+        <button
           type="button"
-          variant="outline"
-          shape="rect"
           onClick={clearFilters}
+          className="text-sm font-medium text-primary hover:underline"
         >
           Limpar filtros
-        </Button>
+        </button>
       ) : null}
     </div>
   );
@@ -152,11 +133,26 @@ export function HeroHistoryTab({ heroId }: { heroId: string }) {
     return (
       <div className="flex flex-col gap-4">
         {filtersBar}
+        {summaryBar}
         <EmptyState
           title={
             hasActiveFilters
-              ? "Nenhuma alteração encontrada para esse filtro."
+              ? "Nenhuma alteração encontrada"
               : "Nenhuma alteração registrada ainda."
+          }
+          description={
+            hasActiveFilters ? (
+              <div className="flex flex-col items-center gap-3">
+                <p>Tente outro campo ou amplie o período selecionado.</p>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-md bg-primary-soft px-4 py-2 text-sm font-medium text-primary"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            ) : undefined
           }
         />
       </div>
@@ -166,27 +162,40 @@ export function HeroHistoryTab({ heroId }: { heroId: string }) {
   return (
     <div className="flex flex-col gap-4">
       {filtersBar}
+      {summaryBar}
 
       <ul className="flex flex-col gap-2">
         {query.data.data.map((change, index) => (
           <li
             key={`${change.created_at}-${index}`}
-            className="rounded-lg border border-border px-4 py-3 text-sm"
+            className="rounded-2xl border border-border px-5 py-4 text-sm"
           >
-            <p className="font-medium text-gray-900">
-              {EVENT_LABELS[change.event] ?? change.event}
-              {change.field
-                ? ` · ${FIELD_LABELS[change.field] ?? change.field}`
-                : ""}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="flex items-center gap-2">
+                <Badge tone={HISTORY_EVENT_TONES[change.event]}>
+                  {EVENT_LABELS[change.event]}
+                </Badge>
+                {change.field ? (
+                  <span className="whitespace-nowrap font-bold text-gray-900">
+                    {FIELD_LABELS[change.field] ?? change.field}
+                  </span>
+                ) : null}
+              </div>
+              <span className="shrink-0 text-xs text-gray-400">
+                {formatDateTime(change.created_at)}
+              </span>
+            </div>
             {change.old_value !== null || change.new_value !== null ? (
-              <p className="text-gray-600">
-                {change.old_value ?? "—"} → {change.new_value ?? "—"}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-gray-700">
+                <span className="text-gray-400 line-through">
+                  {formatHistoryValue(change.field, change.old_value) ?? "—"}
+                </span>
+                <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                <span className="font-medium text-gray-900">
+                  {formatHistoryValue(change.field, change.new_value) ?? "—"}
+                </span>
               </p>
             ) : null}
-            <p className="text-xs text-gray-400">
-              {formatDateTime(change.created_at)}
-            </p>
           </li>
         ))}
       </ul>

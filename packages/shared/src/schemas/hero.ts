@@ -2,6 +2,7 @@ import { z } from "zod";
 import { limits } from "../limits.js";
 import { isFutureUtcPlus14 } from "../dates/not-future.js";
 import { MISSION_STATUSES } from "../domain/mission-status.js";
+import { cursorPageSchema } from "./common.js";
 import { codePointLength, requiredText } from "./text.js";
 
 const avatarUrlPrefixes = ["http://", "https://", "/uploads/"];
@@ -121,6 +122,15 @@ export const heroHistoryQuerySchema = z.object({
 });
 
 export type HeroHistoryQuery = z.infer<typeof heroHistoryQuerySchema>;
+
+export const heroHistoryPageSchema = cursorPageSchema(heroChangeSchema).extend(
+  {
+    total: z.number().int().nonnegative(),
+    field_totals: z.record(z.string(), z.number().int().nonnegative()),
+  },
+);
+
+export type HeroHistoryPageResponse = z.infer<typeof heroHistoryPageSchema>;
 
 export const heroMissionsQuerySchema = z.object({
   status: z.enum(MISSION_STATUSES).optional(),
