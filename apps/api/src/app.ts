@@ -7,6 +7,7 @@ import {
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./http/error-handler.js";
 import { heroRoutes } from "./modules/heroes/routes.js";
+import { missionRoutes } from "./modules/missions/routes.js";
 
 export interface AppDependencies {
   db: Database;
@@ -21,6 +22,7 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
   registerErrorHandler(app);
 
   void app.register(heroRoutes, { prefix: "/heroes" });
+  void app.register(missionRoutes, { prefix: "/missions" });
 
   return app;
 }

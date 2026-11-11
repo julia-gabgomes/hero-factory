@@ -37,6 +37,10 @@ export function invalidState(message: string): AppError {
   return new AppError("INVALID_STATE", message);
 }
 
+export function scheduleConflict(message: string, details: unknown): AppError {
+  return new AppError("SCHEDULE_CONFLICT", message, { details });
+}
+
 export function badRequest(message: string): AppError {
   return new AppError("BAD_REQUEST", message);
 }

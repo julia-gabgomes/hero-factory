@@ -32,3 +32,6 @@ Registro das decisões de projeto, das alternativas descartadas e dos motivos. U
 | ESLint com typescript-eslint e Prettier | Biome | Regras com consciência de tipos (promises soltas), a11y e hooks |
 | Código em inglês, tela e docs em pt-BR | Tudo em um idioma só | Coerente com o contrato do README e com quem avalia |
 | Organização por feature | Por camada, Clean Architecture | Coesão do domínio sem cerimônia. As regras dependem de recursos do MySQL de qualquer forma |
+| Heróis escalados embutidos no `GET /missions/:id` | Endpoint paginado `/missions/:id/heroes` | O número de heróis por missão é pequeno e `mission_heroes` não tem `created_at` para servir de cursor; não alteramos uma migration já commitada e testada só por isso |
+| Reescalar o mesmo herói na mesma missão vira `SCHEDULE_CONFLICT` | Checagem extra de "já escalado" | A query de choque de horário não exclui a missão alvo, então o caso resolve sozinho, apontando a própria missão como conflito, sem código a mais |
+| `cancel` com `UPDATE ... WHERE status IN (:origens)` | Duas rotas de cancelamento, uma por estado de origem | Mesma transição atômica do restante da máquina de estados (0 linhas afetadas → `INVALID_STATE`), só com mais de uma origem válida |
