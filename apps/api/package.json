@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:reset": "pnpm run db:migrate && pnpm run db:seed"
   },
   "dependencies": {
     "@hero-factory/shared": "workspace:*",
@@ -25,6 +27,7 @@
     "vitest": "5.1.0",
     "testcontainers": "12.2.1",
     "@testcontainers/mysql": "12.2.1",
-    "dotenv": "18.0.10"
+    "dotenv": "18.0.10",
+    "tsx": "4.23.15"
   }
 }

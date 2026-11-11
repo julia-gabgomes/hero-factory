@@ -4,6 +4,7 @@ import {
   cursorPageSchema,
   errorEnvelopeSchema,
   idempotencyKeySchema,
+  versionOnlyBodySchema,
 } from "./common.js";
 
 describe("errorEnvelopeSchema", () => {
@@ -117,6 +118,20 @@ describe("idempotencyKeySchema", () => {
   // contra o schema do header Idempotency-Key, então a validação falha.
   it("rejeita um valor que não seja UUID", () => {
     const result = idempotencyKeySchema.safeParse("abc123");
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("versionOnlyBodySchema", () => {
+  it("aceita um corpo só com version", () => {
+    const result = versionOnlyBodySchema.safeParse({ version: 1 });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejeita um corpo sem version", () => {
+    const result = versionOnlyBodySchema.safeParse({});
 
     expect(result.success).toBe(false);
   });

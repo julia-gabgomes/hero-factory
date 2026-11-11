@@ -6,6 +6,7 @@ import {
 } from "fastify-type-provider-zod";
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./http/error-handler.js";
+import { registerServerTiming } from "./http/server-timing.js";
 import { heroRoutes } from "./modules/heroes/routes.js";
 import { missionRoutes } from "./modules/missions/routes.js";
 
@@ -20,6 +21,7 @@ export function buildApp(deps: AppDependencies): FastifyInstance {
   app.setSerializerCompiler(serializerCompiler);
   app.decorate("db", deps.db);
   registerErrorHandler(app);
+  registerServerTiming(app);
 
   void app.register(heroRoutes, { prefix: "/heroes" });
   void app.register(missionRoutes, { prefix: "/missions" });

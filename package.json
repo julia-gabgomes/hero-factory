@@ -11,13 +11,19 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "test": "pnpm -r run test",
     "db:generate": "pnpm --filter @hero-factory/api run db:generate",
-    "db:migrate": "pnpm --filter @hero-factory/api run db:migrate"
+    "db:migrate": "pnpm --filter @hero-factory/api run db:migrate",
+    "db:seed": "pnpm --filter @hero-factory/api run db:seed",
+    "db:reset": "pnpm --filter @hero-factory/api run db:reset"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@tanstack/eslint-plugin-query": "5.107.1",
     "eslint": "9.39.5",
     "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.14.0",
     "prettier": "3.9.10",
     "typescript-eslint": "8.72.1"

@@ -255,3 +255,47 @@ export async function listMissions(
 
   return rows.map((row) => mapRowToMissionResponse(row));
 }
+
+export interface ListMissionsForHeroParams {
+  heroId: string;
+  status?: MissionStatus;
+  cursor?: HeroListCursor;
+  limit?: number;
+}
+
+export async function listMissionsForHero(
+  db: Database,
+  params: ListMissionsForHeroParams,
+): Promise<MissionResponse[]> {
+  const { heroId, status, cursor, limit = LIST_PAGE_SIZE } = params;
+
+  const conditions = [eq(missionHeroes.hero_id, heroId)];
+
+  if (status !== undefined) {
+    conditions.push(eq(missions.status, status));
+  }
+
+  if (cursor !== undefined) {
+    conditions.push(
+      sql`(${missions.created_at}, ${missions.id}) < (${new Date(cursor.created_at)}, ${cursor.id})`,
+    );
+  }
+
+  const rows = await db
+    .select({
+      id: missions.id,
+      title: missions.title,
+      status: missions.status,
+      starts_at: missions.starts_at,
+      ends_at: missions.ends_at,
+      created_at: missions.created_at,
+      updated_at: missions.updated_at,
+    })
+    .from(missionHeroes)
+    .innerJoin(missions, eq(missions.id, missionHeroes.mission_id))
+    .where(and(...conditions))
+    .orderBy(desc(missions.created_at), desc(missions.id))
+    .limit(limit);
+
+  return rows.map((row) => mapRowToMissionResponse(row));
+}

@@ -1,14 +1,10 @@
 import { z } from "zod";
 import { limits } from "../limits.js";
+import { MISSION_STATUSES } from "../domain/mission-status.js";
+import { heroResponseSchema } from "./hero.js";
 import { requiredText } from "./text.js";
 
-export const missionStatusSchema = z.enum([
-  "scheduled",
-  "in_progress",
-  "succeeded",
-  "failed",
-  "cancelled",
-]);
+export const missionStatusSchema = z.enum(MISSION_STATUSES);
 
 export type MissionStatus = z.infer<typeof missionStatusSchema>;
 
@@ -48,3 +44,27 @@ export const finishMissionSchema = z.object({
 });
 
 export type FinishMissionInput = z.infer<typeof finishMissionSchema>;
+
+export const missionResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: missionStatusSchema,
+  starts_at: z.string(),
+  ends_at: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type MissionResponse = z.infer<typeof missionResponseSchema>;
+
+export const missionDetailSchema = missionResponseSchema.extend({
+  heroes: z.array(heroResponseSchema),
+});
+
+export type MissionDetail = z.infer<typeof missionDetailSchema>;
+
+export const listMissionsQuerySchema = z.object({
+  cursor: z.string().optional(),
+});
+
+export type ListMissionsQuery = z.infer<typeof listMissionsQuerySchema>;
