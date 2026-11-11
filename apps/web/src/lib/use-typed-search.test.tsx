@@ -3,11 +3,17 @@ import { act, renderHook } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { missionStatusListSchema } from "@hero-factory/shared";
 import { useTypedSearch } from "./use-typed-search.js";
 
 const schema = z.object({
   q: z.string().optional(),
   cursor: z.string().optional(),
+});
+
+const schemaWithStatus = z.object({
+  cursor: z.string().optional(),
+  status: missionStatusListSchema,
 });
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -58,5 +64,59 @@ describe("useTypedSearch", () => {
     });
 
     expect(result.current[0]).toEqual({});
+  });
+
+  it("escreve um array como CSV na URL e lê de volta com o schema real do shared", () => {
+    function statusWrapper({ children }: { children: ReactNode }) {
+      return <MemoryRouter initialEntries={["/missions"]}>{children}</MemoryRouter>;
+    }
+
+    const { result } = renderHook(() => useTypedSearch(schemaWithStatus), {
+      wrapper: statusWrapper,
+    });
+
+    act(() => {
+      result.current[1]({ status: ["scheduled", "failed"] });
+    });
+
+    expect(result.current[0].status).toEqual(["scheduled", "failed"]);
+  });
+
+  it("remove o parâmetro status da URL quando o array fica vazio", () => {
+    function statusWrapper({ children }: { children: ReactNode }) {
+      return (
+        <MemoryRouter initialEntries={["/missions?status=scheduled"]}>
+          {children}
+        </MemoryRouter>
+      );
+    }
+
+    const { result } = renderHook(() => useTypedSearch(schemaWithStatus), {
+      wrapper: statusWrapper,
+    });
+
+    expect(result.current[0].status).toEqual(["scheduled"]);
+
+    act(() => {
+      result.current[1]({ status: [] });
+    });
+
+    expect(result.current[0].status).toBeUndefined();
+  });
+
+  it("lê um status já presente na URL (deep-link)", () => {
+    function statusWrapper({ children }: { children: ReactNode }) {
+      return (
+        <MemoryRouter initialEntries={["/missions?status=failed"]}>
+          {children}
+        </MemoryRouter>
+      );
+    }
+
+    const { result } = renderHook(() => useTypedSearch(schemaWithStatus), {
+      wrapper: statusWrapper,
+    });
+
+    expect(result.current[0].status).toEqual(["failed"]);
   });
 });
