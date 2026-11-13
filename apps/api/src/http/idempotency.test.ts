@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { heroes } from "../src/db/schema/heroes.js";
-import { idempotencyKeys } from "../src/db/schema/idempotency_keys.js";
-import { buildHeroRow } from "./factories.js";
-import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
+import { heroes } from "../db/schema/heroes.js";
+import { idempotencyKeys } from "../db/schema/idempotency_keys.js";
+import { buildHeroRow } from "../test-support/factories.js";
+import { startTestDatabase, type TestDatabase } from "../test-support/testcontainers.js";
 import {
   IdempotencyKeyMismatchError,
   withIdempotency,
-} from "../src/http/idempotency.js";
+} from "./idempotency.js";
 
 describe("withIdempotency (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { idempotencyKeys } from "../../src/db/schema/idempotency_keys.js";
-import { deleteExpiredIdempotencyKeys } from "../../src/http/idempotency-cleanup.js";
-import { startTestDatabase, type TestDatabase } from "../testcontainers.js";
+import { idempotencyKeys } from "../db/schema/idempotency_keys.js";
+import { deleteExpiredIdempotencyKeys } from "./idempotency-cleanup.js";
+import { startTestDatabase, type TestDatabase } from "../test-support/testcontainers.js";
 
 describe("deleteExpiredIdempotencyKeys (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

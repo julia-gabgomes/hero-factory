@@ -112,6 +112,8 @@ Tokens no `@theme` do Tailwind:
 
 **Ferramentas:** Vitest, Testing Library e MSW.
 
+**Localização:** todo teste fica colocado ao lado do arquivo que testa (`Componente.tsx` + `Componente.test.tsx` na mesma pasta), em qualquer nível (`components/`, `pages/`, `lib/`). Quando um arquivo acumula cenários demais para um teste só, quebre por sufixo de cenário: `Componente.<cenario>.test.tsx` (ex.: `HeroesPage.confirmations.test.tsx` para os fluxos de confirmação, separado de `HeroesPage.test.tsx`).
+
 **Unitários:** `mergeEdits` (todos os casos da tabela acima), formatação de datas sem deslocamento de fuso, `useTypedSearch`.
 
 **Componentes (obrigatórios):**

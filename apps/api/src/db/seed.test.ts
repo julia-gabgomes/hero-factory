@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { heroes } from "../../src/db/schema/heroes.js";
-import { TOTAL_SEED_HEROES, runSeed } from "../../src/db/seed.js";
-import { startTestDatabase, type TestDatabase } from "../testcontainers.js";
+import { heroes } from "./schema/heroes.js";
+import { TOTAL_SEED_HEROES, runSeed } from "./seed.js";
+import { startTestDatabase, type TestDatabase } from "../test-support/testcontainers.js";
 
 describe("seed de heróis (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

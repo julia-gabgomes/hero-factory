@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { missions } from "../src/db/schema/missions.js";
-import { buildMissionRow } from "./factories.js";
-import { getColumn, getIndexes } from "./information-schema.js";
-import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
+import { missions } from "./missions.js";
+import { buildMissionRow } from "../../test-support/factories.js";
+import { getColumn, getIndexes } from "../../test-support/information-schema.js";
+import { startTestDatabase, type TestDatabase } from "../../test-support/testcontainers.js";
 
 describe("schema de missions (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

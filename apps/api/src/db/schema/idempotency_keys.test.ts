@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { idempotencyKeys } from "../src/db/schema/idempotency_keys.js";
-import { getColumn, getPrimaryKeyColumns } from "./information-schema.js";
-import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
+import { idempotencyKeys } from "./idempotency_keys.js";
+import { getColumn, getPrimaryKeyColumns } from "../../test-support/information-schema.js";
+import { startTestDatabase, type TestDatabase } from "../../test-support/testcontainers.js";
 
 type IdempotencyKeyInsert = typeof idempotencyKeys.$inferInsert;
 
