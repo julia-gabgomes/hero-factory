@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { heroes } from "../src/db/schema/heroes.js";
-import { missionHeroes } from "../src/db/schema/mission_heroes.js";
-import { missions } from "../src/db/schema/missions.js";
-import { buildHeroRow, buildMissionRow } from "./factories.js";
+import { heroes } from "./heroes.js";
+import { missionHeroes } from "./mission_heroes.js";
+import { missions } from "./missions.js";
+import { buildHeroRow, buildMissionRow } from "../../test-support/factories.js";
 import {
   getForeignKeys,
   getIndexes,
   getPrimaryKeyColumns,
-} from "./information-schema.js";
-import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
+} from "../../test-support/information-schema.js";
+import { startTestDatabase, type TestDatabase } from "../../test-support/testcontainers.js";
 
 describe("schema de mission_heroes (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { buildApp } from "../../../src/app.js";
-import { createDbClient, type DbClient } from "../../../src/db/client.js";
-import { heroes } from "../../../src/db/schema/heroes.js";
-import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
-import { missionHeroes } from "../../../src/db/schema/mission_heroes.js";
-import { missions } from "../../../src/db/schema/missions.js";
-import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
+import { buildApp } from "../../../app.js";
+import { createDbClient, type DbClient } from "../../../db/client.js";
+import { heroes } from "../../../db/schema/heroes.js";
+import { idempotencyKeys } from "../../../db/schema/idempotency_keys.js";
+import { missionHeroes } from "../../../db/schema/mission_heroes.js";
+import { missions } from "../../../db/schema/missions.js";
+import { startTestDatabase, type TestDatabase } from "../../../test-support/testcontainers.js";
 
 // "Remover herói também trava a missão": a remoção do último herói e o
 // início da missão disputam o mesmo lock `FOR UPDATE` na linha da missão,

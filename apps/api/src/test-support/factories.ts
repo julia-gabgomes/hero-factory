@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { heroes } from "../src/db/schema/heroes.js";
-import type { missions } from "../src/db/schema/missions.js";
+import type { heroes } from "../db/schema/heroes.js";
+import type { missions } from "../db/schema/missions.js";
 
 export type HeroInsert = typeof heroes.$inferInsert;
 export type MissionInsert = typeof missions.$inferInsert;
