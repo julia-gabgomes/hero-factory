@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { buildApp } from "../../../src/app.js";
-import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
-import { missions } from "../../../src/db/schema/missions.js";
-import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
+import { buildApp } from "../../../app.js";
+import { idempotencyKeys } from "../../../db/schema/idempotency_keys.js";
+import { missions } from "../../../db/schema/missions.js";
+import { startTestDatabase, type TestDatabase } from "../../../test-support/testcontainers.js";
 
 type MissionBody = {
   id: string;

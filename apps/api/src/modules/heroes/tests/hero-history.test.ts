@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { buildApp } from "../../../src/app.js";
-import { heroes } from "../../../src/db/schema/heroes.js";
-import { heroChanges } from "../../../src/db/schema/hero_changes.js";
-import { idempotencyKeys } from "../../../src/db/schema/idempotency_keys.js";
-import { startTestDatabase, type TestDatabase } from "../../testcontainers.js";
+import { buildApp } from "../../../app.js";
+import { heroes } from "../../../db/schema/heroes.js";
+import { heroChanges } from "../../../db/schema/hero_changes.js";
+import { idempotencyKeys } from "../../../db/schema/idempotency_keys.js";
+import { startTestDatabase, type TestDatabase } from "../../../test-support/testcontainers.js";
 
 type HeroBody = {
   id: string;

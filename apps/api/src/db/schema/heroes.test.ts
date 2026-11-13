@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { heroes } from "../src/db/schema/heroes.js";
-import { buildHeroRow } from "./factories.js";
-import { getColumn, getIndexes } from "./information-schema.js";
-import { startTestDatabase, type TestDatabase } from "./testcontainers.js";
+import { heroes } from "./heroes.js";
+import { buildHeroRow } from "../../test-support/factories.js";
+import { getColumn, getIndexes } from "../../test-support/information-schema.js";
+import { startTestDatabase, type TestDatabase } from "../../test-support/testcontainers.js";
 
 describe("schema de heroes (MySQL real via Testcontainers)", () => {
   let testDatabase: TestDatabase;

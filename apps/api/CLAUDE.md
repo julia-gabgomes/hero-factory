@@ -6,19 +6,21 @@ Regras do backend. Complementa o [`CLAUDE.md` da raiz](../../CLAUDE.md), que def
 
 ```
 apps/api/
-├─ src/
-│  ├─ modules/
-│  │  ├─ heroes/      routes.ts · service.ts · repository.ts · history.ts · *.test.ts
-│  │  ├─ missions/    routes.ts · service.ts · repository.ts · assignment.ts · *.test.ts
-│  │  ├─ imports/     routes.ts · service.ts · repository.ts · processor.ts · *.test.ts
-│  │  └─ uploads/     routes.ts · storage.ts (FileStorage) · *.test.ts
-│  ├─ db/             client.ts · schema/*.ts · migrations/ · seed.ts
-│  ├─ http/           errors.ts (AppError) · error-handler.ts · idempotency.ts · server-timing.ts · cursor.ts
-│  ├─ app.ts          buildApp({ db, storage }): composition root, usada também pelos testes
-│  ├─ server.ts       entrypoint HTTP
-│  └─ worker.ts       entrypoint do worker de importação
-└─ test/              helpers: testcontainers, factories, barreira de concorrência
+└─ src/
+   ├─ modules/
+   │  ├─ heroes/      routes.ts · service.ts · repository.ts · history.ts · tests/*.test.ts
+   │  ├─ missions/    routes.ts · service.ts · repository.ts · assignment.ts · tests/*.test.ts
+   │  ├─ imports/     routes.ts · service.ts · repository.ts · processor.ts · tests/*.test.ts
+   │  └─ uploads/     routes.ts · storage.ts (FileStorage) · tests/*.test.ts
+   ├─ db/             client.ts · schema/*.ts (+ *.test.ts colocado) · migrations/ · seed.ts (+ seed.test.ts)
+   ├─ http/           errors.ts (AppError) · error-handler.ts · idempotency.ts (+ idempotency.test.ts) · idempotency-cleanup.ts (+ .test.ts) · server-timing.ts (+ .test.ts) · cursor.ts
+   ├─ test-support/   helpers só: testcontainers.ts, factories.ts, information-schema.ts — nenhum `*.test.ts` aqui
+   ├─ app.ts          buildApp({ db, storage }): composition root, usada também pelos testes
+   ├─ server.ts       entrypoint HTTP
+   └─ worker.ts       entrypoint do worker de importação
 ```
+
+**Regra de localização de teste:** todo teste fica na mesma pasta do código que testa. Quando o teste cruza camadas dentro de um módulo (um caso de uso via `app.inject()` que passa por `routes → service → repository`), ele fica em `tests/` dentro do módulo, nomeado pelo comportamento (`create-hero.test.ts`), não por arquivo de camada. Quando há correspondência 1:1 entre teste e arquivo (um schema, um helper de `http/`), o teste fica colocado ao lado, com o mesmo nome. `test-support/` nunca recebe um spec, só infraestrutura de teste compartilhada.
 
 ## Camadas
 
@@ -188,7 +190,7 @@ scheduled ──start (≥1 herói)──▶ in_progress ──finish──▶ s
 **Regras de teste**
 - Testes de regra de negócio usam o **banco real**. Não use mock do banco para provar concorrência, UNIQUE ou collation.
 - Testes de concorrência usam uma **barreira** (`Promise.all` com sincronização), para não passarem por sorte.
-- Cada teste começa com as tabelas truncadas e usa factories de `apps/api/test`.
+- Cada teste começa com as tabelas truncadas e usa factories de `apps/api/src/test-support`.
 
 ## O que NÃO fazer na API
 

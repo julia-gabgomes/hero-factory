@@ -4,10 +4,10 @@ import {
   type StartedMySqlContainer,
 } from "@testcontainers/mysql";
 import { migrate } from "drizzle-orm/mysql2/migrator";
-import { createDbClient, type DbClient } from "../src/db/client.js";
+import { createDbClient, type DbClient } from "../db/client.js";
 
 const MIGRATIONS_FOLDER = fileURLToPath(
-  new URL("../src/db/migrations", import.meta.url),
+  new URL("../db/migrations", import.meta.url),
 );
 
 export interface TestDatabase {
